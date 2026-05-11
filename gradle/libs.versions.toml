@@ -1,0 +1,24 @@
+[versions]
+kotlin = "2.3.20"
+
+mdl = "1.4.0"
+eupid-sdjwt = "1.4.0"
+vck="5.12.0"
+kmmresult= "1.9.3"
+napier = "2.7.1"
+
+[libraries]
+kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
+
+vck = {group= "at.asitplus.wallet", name="vck", version.ref = "vck"}
+vck-openid = {group= "at.asitplus.wallet", name="vck-openid", version.ref = "vck"}
+vck-openid-ktor = {group= "at.asitplus.wallet", name="vck-openid-ktor", version.ref = "vck"}
+
+credential-eupid-sdjwt = { module = "at.asitplus.wallet:eupidcredential-sdjwt", version.ref = "eupid-sdjwt" }
+credential-mdl = { group = "at.asitplus.wallet", name = "mobiledrivinglicence", version.ref = "mdl" }
+kmmresult = {group = "at.asitplus", name = "kmmresult", version.ref = "kmmresult"}
+napier = {group = "io.github.aakira", name = "napier", version.ref = "napier"}
+
+
+[plugins]
+kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
