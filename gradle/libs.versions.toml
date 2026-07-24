@@ -13,6 +13,8 @@ kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotl
 vck = {group= "at.asitplus.wallet", name="vck", version.ref = "vck"}
 vck-openid = {group= "at.asitplus.wallet", name="vck-openid", version.ref = "vck"}
 vck-openid-ktor = {group= "at.asitplus.wallet", name="vck-openid-ktor", version.ref = "vck"}
+vck-dif = {group= "at.asitplus.wallet", name="dif-data-classes", version.ref = "vck"}
+vck-csc = {group= "at.asitplus.wallet", name="csc-data-classes", version.ref = "vck"}
 
 credential-eupid-sdjwt = { module = "at.asitplus.wallet:eupidcredential-sdjwt", version.ref = "eupid-sdjwt" }
 credential-mdl = { group = "at.asitplus.wallet", name = "mobiledrivinglicence", version.ref = "mdl" }

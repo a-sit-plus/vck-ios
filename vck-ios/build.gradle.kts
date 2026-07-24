@@ -17,6 +17,7 @@ val xcf = XCFramework(xcframeworkName)
 
 val walletDependencies= listOf(
     libs.vck,
+    libs.vck.dif,
     libs.vck.openid,
     libs.vck.openid.ktor,
     libs.credential.mdl,

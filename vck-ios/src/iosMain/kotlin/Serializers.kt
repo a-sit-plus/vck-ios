@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalObjCName::class)
+@file:OptIn(ExperimentalObjCName::class, ExperimentalSerializationApi::class)
 
 import at.asitplus.signum.indispensable.cosef.CoseHeader
 import at.asitplus.signum.indispensable.cosef.io.coseCompliantSerializer
@@ -6,6 +6,7 @@ import at.asitplus.signum.indispensable.josef.JwsHeader
 import at.asitplus.signum.indispensable.josef.io.joseCompliantSerializer
 import at.asitplus.signum.internals.toByteArray
 import at.asitplus.signum.internals.toNSData
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.decodeFromByteArray
 import kotlinx.serialization.encodeToByteArray
 import platform.Foundation.NSData
