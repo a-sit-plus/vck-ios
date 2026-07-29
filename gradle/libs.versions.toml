@@ -6,6 +6,8 @@ eupid-sdjwt = "1.4.0"
 vck="5.12.0"
 kmmresult= "1.9.3"
 napier = "2.7.1"
+signum = "3.24.0"
+supreme = "0.15.0"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
@@ -13,8 +15,14 @@ kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotl
 vck = {group= "at.asitplus.wallet", name="vck", version.ref = "vck"}
 vck-openid = {group= "at.asitplus.wallet", name="vck-openid", version.ref = "vck"}
 vck-openid-ktor = {group= "at.asitplus.wallet", name="vck-openid-ktor", version.ref = "vck"}
-vck-dif = {group= "at.asitplus.wallet", name="dif-data-classes", version.ref = "vck"}
-vck-csc = {group= "at.asitplus.wallet", name="csc-data-classes", version.ref = "vck"}
+vck-data-openid = {group= "at.asitplus.wallet", name="vck-openid-data-classes", version.ref = "vck"}
+vck-data-etsi = {group= "at.asitplus.wallet",  name="vck-etsi-data-classes", version.ref = "vck"}
+vck-data-dif = {group= "at.asitplus.wallet", name="dif-data-classes", version.ref = "vck"}
+vck-data-csc = {group= "at.asitplus.wallet", name="csc-data-classes", version.ref = "vck"}
+signum-indispensable = {group= "at.asitplus.signum", name="indispensable", version.ref = "signum"}
+signum-indispensable-josef = {group= "at.asitplus.signum", name="indispensable-josef", version.ref = "signum"}
+signum-indispensable-cosef = {group= "at.asitplus.signum", name="indispensable-cosef", version.ref = "signum"}
+signum-supreme = {group= "at.asitplus.signum", name="supreme", version.ref = "supreme"}
 
 credential-eupid-sdjwt = { module = "at.asitplus.wallet:eupidcredential-sdjwt", version.ref = "eupid-sdjwt" }
 credential-mdl = { group = "at.asitplus.wallet", name = "mobiledrivinglicence", version.ref = "mdl" }
