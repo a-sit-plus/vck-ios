@@ -21,7 +21,6 @@ val walletDependencies= listOf(
     libs.vck.data.dif,
     libs.vck.data.openid,
     libs.vck.data.csc,
-    libs.vck.data.etsi,
     libs.vck.openid,
     libs.vck.openid.ktor,
     //extend with new VC-K 7 modules, once VC-K 7 lands

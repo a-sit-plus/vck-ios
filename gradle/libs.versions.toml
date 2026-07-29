@@ -15,8 +15,7 @@ kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotl
 vck = {group= "at.asitplus.wallet", name="vck", version.ref = "vck"}
 vck-openid = {group= "at.asitplus.wallet", name="vck-openid", version.ref = "vck"}
 vck-openid-ktor = {group= "at.asitplus.wallet", name="vck-openid-ktor", version.ref = "vck"}
-vck-data-openid = {group= "at.asitplus.wallet", name="vck-openid-data-classes", version.ref = "vck"}
-vck-data-etsi = {group= "at.asitplus.wallet",  name="vck-etsi-data-classes", version.ref = "vck"}
+vck-data-openid = {group= "at.asitplus.wallet", name="openid-data-classes", version.ref = "vck"}
 vck-data-dif = {group= "at.asitplus.wallet", name="dif-data-classes", version.ref = "vck"}
 vck-data-csc = {group= "at.asitplus.wallet", name="csc-data-classes", version.ref = "vck"}
 signum-indispensable = {group= "at.asitplus.signum", name="indispensable", version.ref = "signum"}
