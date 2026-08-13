@@ -21,7 +21,7 @@ import at.asitplus.wallet.lib.utils.DefaultMapStore
 import at.asitplus.wallet.lib.utils.MapStore
 import kotlin.time.Clock
 
-/** Swift-friendly configuration for [OpenId4VpHolder]. */
+/** Swift-friendly configuration for [OpenId4VpHolder].  in the cheapest way possible*/
 class OpenId4VpHolderBuilder(
     val keyMaterial: KeyMaterial,
 ) {

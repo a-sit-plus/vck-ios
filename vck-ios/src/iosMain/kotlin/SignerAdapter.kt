@@ -52,6 +52,7 @@ import platform.Security.SecKeyRef
 import platform.Security.SecItemCopyMatching
 import platform.Security.errSecAuthFailed
 import platform.Security.errSecItemNotFound
+import platform.Security.errSecParam
 import platform.Security.errSecSuccess
 import platform.Security.errSecUserCanceled
 import platform.Security.kSecClass
@@ -139,7 +140,7 @@ private sealed class SecKeySigner(
             val signingKey: SecKeyRef = when (val status = SecItemCopyMatching(query, item.ptr.reinterpret())) {
                 errSecSuccess -> requireNotNull(item.value)
                     .also { defer { CFRelease(it) } }
-                errSecItemNotFound -> privateKey.value // transient SecKey
+                errSecItemNotFound, errSecParam -> privateKey.value // transient SecKey
                 else -> throw CFCryptoOperationFailed("retrieve private key", status)
             }
             corecall {
