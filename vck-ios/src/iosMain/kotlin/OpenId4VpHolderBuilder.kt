@@ -42,24 +42,21 @@ class OpenId4VpHolderBuilder(
     var randomSource: RandomSource = RandomSource.Secure
     var lookupJsonWebKeysForClient: (OpenId4VpHolder.JsonWebKeyLookupInput) -> JsonWebKeySet? = { null }
 
-    fun build(): OpenId4VpHolder {
-        val keyMaterial = keyMaterial
-        return OpenId4VpHolder(
-            keyMaterial = keyMaterial,
-            holder = holder ?: HolderAgent(keyMaterial),
-            signIdToken = signIdToken ?: SignJwt(keyMaterial, JwsHeaderCertOrJwk()),
-            encryptJarm = encryptJarm ?: EncryptJwe(keyMaterial),
-            supportedAlgorithms = supportedAlgorithms,
-            signDeviceAuthDetached = signDeviceAuthDetached
-                ?: SignCoseDetached(keyMaterial, CoseHeaderNone(), CoseHeaderNone()),
-            clock = clock,
-            clientId = clientId,
-            authorizationEndpoint = authorizationEndpoint,
-            remoteResourceRetriever = remoteResourceRetriever,
-            requestObjectJwsVerifier = requestObjectJwsVerifier,
-            walletNonceMapStore = walletNonceMapStore,
-            randomSource = randomSource,
-            lookupJsonWebKeysForClient = lookupJsonWebKeysForClient,
-        )
-    }
+    fun build(): OpenId4VpHolder = OpenId4VpHolder(
+        keyMaterial = keyMaterial,
+        holder = holder ?: HolderAgent(keyMaterial),
+        signIdToken = signIdToken ?: SignJwt(keyMaterial, JwsHeaderCertOrJwk()),
+        encryptJarm = encryptJarm ?: EncryptJwe(keyMaterial),
+        supportedAlgorithms = supportedAlgorithms,
+        signDeviceAuthDetached = signDeviceAuthDetached
+            ?: SignCoseDetached(keyMaterial, CoseHeaderNone(), CoseHeaderNone()),
+        clock = clock,
+        clientId = clientId,
+        authorizationEndpoint = authorizationEndpoint,
+        remoteResourceRetriever = remoteResourceRetriever,
+        requestObjectJwsVerifier = requestObjectJwsVerifier,
+        walletNonceMapStore = walletNonceMapStore,
+        randomSource = randomSource,
+        lookupJsonWebKeysForClient = lookupJsonWebKeysForClient,
+    )
 }
