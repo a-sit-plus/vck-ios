@@ -7,8 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		CE185D64302D99A700082830 /* vck_ios.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = CE185D63302D99A700082830 /* vck_ios.xcframework */; };
-		CE185D65302D99A700082830 /* vck_ios.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = CE185D63302D99A700082830 /* vck_ios.xcframework */; };
+		CE185DC8302DBB0D00082830 /* vck_ios.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = CE185DC7302DBB0D00082830 /* vck_ios.xcframework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -32,7 +31,7 @@
 		CE0E22653010C5C400649086 /* vckiostest.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = vckiostest.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		CE0E22723010C5C600649086 /* vckiostestTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = vckiostestTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		CE0E227C3010C5C600649086 /* vckiostestUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = vckiostestUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		CE185D63302D99A700082830 /* vck_ios.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = vck_ios.xcframework; sourceTree = "<group>"; };
+		CE185DC7302DBB0D00082830 /* vck_ios.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = vck_ios.xcframework; path = "../vck-ios/build/XCFrameworks/debug/vck_ios.xcframework"; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -71,7 +70,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				CE185D64302D99A700082830 /* vck_ios.xcframework in Frameworks */,
+				CE185DC8302DBB0D00082830 /* vck_ios.xcframework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -79,7 +78,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				CE185D65302D99A700082830 /* vck_ios.xcframework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -100,7 +98,7 @@
 				CE0E22753010C5C600649086 /* vckiostestTests */,
 				CE0E227F3010C5C600649086 /* vckiostestUITests */,
 				CE0E22663010C5C400649086 /* Products */,
-				CE185D63302D99A700082830 /* vck_ios.xcframework */,
+				CE185DC7302DBB0D00082830 /* vck_ios.xcframework */,
 			);
 			sourceTree = "<group>";
 		};
@@ -295,8 +293,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				CC = "$(PROJECT_DIR)/clang-wrapper.sh";
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CC = "$(PROJECT_DIR)/clang-wrapper.sh";
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
@@ -360,8 +358,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				CC = "$(PROJECT_DIR)/clang-wrapper.sh";
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CC = "$(PROJECT_DIR)/clang-wrapper.sh";
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
