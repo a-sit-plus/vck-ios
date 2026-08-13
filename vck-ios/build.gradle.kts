@@ -1,9 +1,13 @@
+import co.touchlab.skie.configuration.DefaultArgumentInterop
+import co.touchlab.skie.configuration.EnumInterop
+import co.touchlab.skie.configuration.SealedInterop
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
+    id("co.touchlab.skie") version "0.10.14"
 }
 
 group = "at.asitplus.wallet"
@@ -59,6 +63,32 @@ kotlin {
 
         commonTest.dependencies {
             implementation(libs.kotlin.test)
+        }
+    }
+}
+
+skie {
+    features {
+        defaultArgumentsInExternalLibraries.set(true)
+
+        group {
+            SealedInterop.ExportEntireHierarchy(true) // or false
+        }
+
+        group("at.asitplus.signum.indispensable.HMAC") {
+            EnumInterop.Enabled(false)
+        }
+
+        group("at.asitplus.dcapi") {
+            DefaultArgumentInterop.Enabled(true)
+        }
+
+        group("at.asitplus.wallet") {
+            DefaultArgumentInterop.Enabled(true)
+        }
+
+        group("at.asitplus.iso") {
+            DefaultArgumentInterop.Enabled(true)
         }
     }
 }
