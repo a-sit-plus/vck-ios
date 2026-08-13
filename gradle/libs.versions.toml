@@ -1,13 +1,14 @@
 [versions]
-kotlin = "2.3.20"
+kotlin = "2.4.10"
 
 mdl = "1.4.0"
 eupid-sdjwt = "1.4.0"
-vck="5.12.0"
+vck="7.0.0"
 kmmresult= "1.9.3"
 napier = "2.7.1"
 signum = "3.24.0"
 supreme = "0.15.0"
+ktor = "3.5.1"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
@@ -27,6 +28,7 @@ credential-eupid-sdjwt = { module = "at.asitplus.wallet:eupidcredential-sdjwt", 
 credential-mdl = { group = "at.asitplus.wallet", name = "mobiledrivinglicence", version.ref = "mdl" }
 kmmresult = {group = "at.asitplus", name = "kmmresult", version.ref = "kmmresult"}
 napier = {group = "io.github.aakira", name = "napier", version.ref = "napier"}
+ktor-client-darwin = { module = "io.ktor:ktor-client-darwin", version.ref = "ktor" }
 
 
 [plugins]

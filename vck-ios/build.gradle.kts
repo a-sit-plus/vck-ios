@@ -1,9 +1,12 @@
+import co.touchlab.skie.configuration.EnumInterop
+import co.touchlab.skie.configuration.SealedInterop
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
+    id("co.touchlab.skie") version "0.10.14"
 }
 
 group = "at.asitplus.wallet"
@@ -23,12 +26,6 @@ val walletDependencies= listOf(
     libs.vck.data.csc,
     libs.vck.openid,
     libs.vck.openid.ktor,
-    //extend with new VC-K 7 modules, once VC-K 7 lands
-
-    //credentials: gone with VC-K 7
-    libs.credential.mdl,
-    libs.credential.eupid.sdjwt,
-
     libs.signum.indispensable,
     libs.signum.indispensable.josef,
     libs.signum.indispensable.cosef,
@@ -57,8 +54,27 @@ kotlin {
             walletDependencies.forEach {api(it)}
         }
 
+        iosMain.dependencies {
+            implementation(libs.ktor.client.darwin)
+        }
+
         commonTest.dependencies {
             implementation(libs.kotlin.test)
         }
+    }
+}
+
+skie {
+    features {
+        defaultArgumentsInExternalLibraries.set(false)
+
+        group {
+            SealedInterop.ExportEntireHierarchy(true) // or false
+        }
+
+        group("at.asitplus.signum.indispensable.HMAC") {
+            EnumInterop.Enabled(false)
+        }
+
     }
 }
