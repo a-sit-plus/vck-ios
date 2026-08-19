@@ -1,8 +1,10 @@
 package at.asitplus.wallet
 
+import HolderAgentBuilder
 import OpenId4VpHolderBuilder
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 
 class Test {
 
@@ -16,5 +18,15 @@ class Test {
 
         assertEquals(builder.clientId, metadata.issuer)
         assertEquals(builder.authorizationEndpoint, metadata.authorizationEndpoint)
+    }
+
+
+    @Test
+    fun buildsHolderAgentWithConfiguration() {
+        val builder = HolderAgentBuilder().apply {
+        }
+        val holder = builder.build()
+
+        assertNotNull(holder)
     }
 }
