@@ -1,6 +1,7 @@
 @file:OptIn(ExperimentalObjCName::class, ExperimentalSerializationApi::class)
 
 import at.asitplus.dif.PresentationSubmission
+import at.asitplus.iso.IssuerSigned
 import at.asitplus.signum.indispensable.cosef.CoseHeader
 import at.asitplus.signum.indispensable.cosef.io.coseCompliantSerializer
 import at.asitplus.signum.indispensable.josef.JwsHeader
@@ -75,6 +76,10 @@ object VckSerializer {
     @Throws(SerializationException::class)
     fun coseDeserializeCoseHeader(@ObjCName("_") data: NSData): CoseHeader =
         coseCompliantSerializer.decodeFromByteArray<CoseHeader>(data.toByteArray())
+
+    @Throws(SerializationException::class)
+    fun coseDeserializeIssuerSigned(@ObjCName("_") data: NSData): IssuerSigned =
+        coseCompliantSerializer.decodeFromByteArray<IssuerSigned>(data.toByteArray())
 
     @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
     @Throws(SerializationException::class)
