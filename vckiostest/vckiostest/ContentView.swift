@@ -101,9 +101,13 @@ final class WalletModel: NSObject, ObservableObject, ASWebAuthenticationPresenta
         let key = try loadOrCreateSecureEnclaveKey()
         let pointer = Unmanaged.passUnretained(key).toOpaque()
         let keyMaterial = KeyMaterialAdapter.shared.fromSecKey(privateKey: pointer).getOrThrow()!
+        let store = SwiftSubjectCredentialStore()
         let created = BasicWallet(keyMaterial: keyMaterial)
         //use a builder wrapper
-        let builder = OpenId4VpHolderBuilder(keyMaterial: keyMaterial)
+        let builder = OpenId4VpHolderBuilder(
+            keyMaterial: keyMaterial,
+            subjectCredentialStore: store
+        )
         builder.holder = created.holder
         builder.remoteResourceRetriever = created.remoteResourceRetriever
         openId4VpHolder = builder.build()
