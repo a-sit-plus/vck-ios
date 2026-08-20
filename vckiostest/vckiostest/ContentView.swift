@@ -51,9 +51,11 @@ final class WalletModel: NSObject, ObservableObject, ASWebAuthenticationPresenta
     @Published var presentationRequest = ""
     @Published var log = "Ready. Run on a physical device (Secure Enclave is unavailable in Simulator)."
     @Published var busy = false
+    @Published var hasPreparedPresentation = false
 
     private var wallet: BasicWallet?
     private var openId4VpHolder: OpenId4VpHolder?
+    private var presentationState: AuthorizationResponsePreparationState?
     private var browserSession: ASWebAuthenticationSession?
 
     func issue() {
@@ -72,19 +74,45 @@ final class WalletModel: NSObject, ObservableObject, ASWebAuthenticationPresenta
 
     func handle(url: URL) {
         guard url.scheme != "asitplus-wallet" else { return }
-        present(url.absoluteString)
+        presentationState = nil
+        hasPreparedPresentation = false
+        presentationRequest = url.absoluteString
+        append("OpenID4VP request received. Continue with step 3.")
     }
 
     func presentInput() {
-        present(presentationRequest)
+        preparePresentation(presentationRequest)
     }
 
-    private func present(_ request: String) {
+    private func preparePresentation(_ request: String) {
         Task { await run {
+            self.presentationState = nil
+            self.hasPreparedPresentation = false
             _ = try self.walletInstance()
-            let result = try await self.openId4VpHolder!.createAuthnResponse(input: request).getOrThrow()!
+            let state = try await self.openId4VpHolder!
+                .startAuthorizationResponsePreparation(input: request).getOrThrow()!
+            let matches = try await self.openId4VpHolder!
+                .getMatchingCredentials(preparationState: state).getOrThrow()!
+            self.presentationState = state
+            self.hasPreparedPresentation = true
+            self.append("OpenID4VP request prepared. Audience: \(state.audience)")
+            self.append("Request object verified: \(String(describing: state.requestObjectVerified))")
+            self.append("Credentials/claims proposed for consent: \(String(describing: matches))")
+        } }
+    }
+
+    func approvePresentation() {
+        Task { await run {
+            guard let state = self.presentationState else { return }
+            let result = try await self.openId4VpHolder!
+                .finalizeAuthorizationResponse(
+                    preparationState: state,
+                    credentialPresentation: nil
+                ).getOrThrow()!
             let returnUrl = try await self.send(result)
-            self.append("Swift-created OpenId4VpHolder answered and sent the presentation.")
+            self.presentationState = nil
+            self.hasPreparedPresentation = false
+            self.append("User consented; presentation created and sent.")
             if let returnUrl, let url = URL(string: returnUrl) {
                 await UIApplication.shared.open(url)
             }
@@ -102,7 +130,7 @@ final class WalletModel: NSObject, ObservableObject, ASWebAuthenticationPresenta
         let pointer = Unmanaged.passUnretained(key).toOpaque()
         let keyMaterial = KeyMaterialAdapter.shared.fromSecKey(privateKey: pointer).getOrThrow()!
         let store = SwiftSubjectCredentialStore()
-        let created = BasicWallet(keyMaterial: keyMaterial)
+        let created = BasicWallet(keyMaterial: keyMaterial, subjectCredentialStore: store)
         //use a builder wrapper
         let builder = OpenId4VpHolderBuilder(
             keyMaterial: keyMaterial,
@@ -201,9 +229,12 @@ struct ContentView: View {
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .textFieldStyle(.roundedBorder)
-            Button("Present pasted/scanned request") { model.presentInput() }
+            Button("3. Parse request and inspect consent data") { model.presentInput() }
                 .buttonStyle(.bordered)
                 .disabled(model.busy || model.presentationRequest.isEmpty)
+            Button("4. Consent and present") { model.approvePresentation() }
+                .buttonStyle(.borderedProminent)
+                .disabled(model.busy || !model.hasPreparedPresentation)
             ScrollView { Text(model.log).font(.caption.monospaced()).textSelection(.enabled) }
             Spacer()
         }

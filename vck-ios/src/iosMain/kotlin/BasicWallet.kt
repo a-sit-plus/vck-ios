@@ -6,8 +6,10 @@ import at.asitplus.signum.indispensable.SignatureAlgorithm
 import at.asitplus.signum.indispensable.pki.X509Certificate
 import at.asitplus.signum.supreme.sign.Signer
 import at.asitplus.wallet.lib.agent.HolderAgent
+import at.asitplus.wallet.lib.agent.InMemorySubjectCredentialStore
 import at.asitplus.wallet.lib.agent.KeyMaterial
 import at.asitplus.wallet.lib.agent.SignerBasedKeyMaterial
+import at.asitplus.wallet.lib.agent.SubjectCredentialStore
 import at.asitplus.wallet.lib.ktor.openid.OpenId4VciClient
 import at.asitplus.wallet.lib.oauth2.OAuth2Client
 import at.asitplus.wallet.lib.oidvci.encodeToParameters
@@ -34,8 +36,13 @@ private class SecKeyMaterial(signer: Signer) : SignerBasedKeyMaterial(signer) {
 }
 
 /** Minimal stateful bridge for a single issue-then-present demo run. */
-class BasicWallet(val keyMaterial: KeyMaterial) {
-    val holder = HolderAgent(keyMaterial)
+class BasicWallet(
+    val keyMaterial: KeyMaterial,
+    subjectCredentialStore: SubjectCredentialStore,
+) {
+    constructor(keyMaterial: KeyMaterial) : this(keyMaterial, InMemorySubjectCredentialStore())
+
+    val holder = HolderAgent(keyMaterial, subjectCredentialStore)
     private val http = HttpClient(Darwin)
     val remoteResourceRetriever: suspend (RemoteResourceRetrieverInput) -> String? = { input ->
         val response = if (input.method == HttpMethod.Post) {
