@@ -12,6 +12,9 @@ import at.asitplus.openid.ClientNonceResponse
 import at.asitplus.openid.CredentialResponseParameters
 import at.asitplus.openid.CredentialRequestParameters
 import at.asitplus.wallet.lib.data.KeyBindingJws
+import at.asitplus.wallet.lib.data.SelectiveDisclosureItem
+import at.asitplus.wallet.lib.data.VerifiableCredentialJws
+import at.asitplus.wallet.lib.data.VerifiableCredentialSdJwt
 import kotlinx.serialization.decodeFromByteArray
 import kotlinx.serialization.encodeToByteArray
 import kotlinx.serialization.SerializationException
@@ -38,6 +41,18 @@ object VckSerializer {
     @Throws(SerializationException::class)
     fun joseSerializeKeyBindingJws(@ObjCName("_") binding: KeyBindingJws): NSData =
         joseCompliantSerializer.encodeToString(binding).encodeToByteArray().toNSData()
+
+    @Throws(SerializationException::class)
+    fun joseDeserializeVerifiableCredentialJws(@ObjCName("_") string: String): VerifiableCredentialJws =
+        joseCompliantSerializer.decodeFromString<VerifiableCredentialJws>(string)
+
+    @Throws(SerializationException::class)
+    fun joseDeserializeVerifiableCredentialSdJwt(@ObjCName("_") string: String): VerifiableCredentialSdJwt =
+        joseCompliantSerializer.decodeFromString<VerifiableCredentialSdJwt>(string)
+
+    @Throws(SerializationException::class)
+    fun joseDeserializeSelectiveDisclosureItem(@ObjCName("_") string: String): SelectiveDisclosureItem =
+        joseCompliantSerializer.decodeFromString<SelectiveDisclosureItem>(string)
 
 
     // NonceResponse
