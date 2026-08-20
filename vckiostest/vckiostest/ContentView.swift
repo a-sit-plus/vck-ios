@@ -206,3 +206,42 @@ struct ContentView: View {
         .padding()
     }
 }
+
+extension String: Error {}
+
+class SwiftSubjectCredentialStore: SubjectCredentialStore {
+    func __getCredentials(credentialSchemes: Any?) async throws -> KmmResult<NSArray> {
+        return KmmResult.init(failure: KotlinIllegalArgumentException(message: "To implement"))
+    }
+
+    func __storeCredential(issuerSigned: IssuerSigned, scheme: any IsoMdocCredentialScheme, renewalInfo: CredentialRenewalInfo?) async throws
+        -> any SubjectCredentialStoreStoreEntry {
+        throw "Should not have been called"
+    }
+
+    func __storeCredential(issuerSigned: IssuerSigned, scheme: any IsoMdocCredentialScheme, renewalInfo: CredentialRenewalInfo?, issuer: X509Certificate?) async throws
+        -> any SubjectCredentialStoreStoreEntry {
+        throw "Should not have been called"
+    }
+
+    func __storeCredential(vc: VerifiableCredentialJws, vcSerialized: String, scheme: any VcJwtCredentialScheme, renewalInfo: CredentialRenewalInfo?) async throws
+        -> any SubjectCredentialStoreStoreEntry {
+        throw "Should not have been called"
+    }
+
+    func __storeCredential(vc: VerifiableCredentialJws, vcSerialized: String, scheme: any VcJwtCredentialScheme, renewalInfo: CredentialRenewalInfo?, issuer: X509Certificate?) async throws
+        -> any SubjectCredentialStoreStoreEntry {
+        throw "Should not have been called"
+    }
+
+    func __storeCredential(vc: VerifiableCredentialSdJwt, vcSerialized: String, disclosures: [String: Any], scheme: any SdJwtCredentialScheme, renewalInfo: CredentialRenewalInfo?) async throws
+        -> any SubjectCredentialStoreStoreEntry {
+        throw "Should not have been called"
+    }
+
+    func __storeCredential(vc: VerifiableCredentialSdJwt, vcSerialized: String, disclosures: [String: Any], scheme: any SdJwtCredentialScheme, renewalInfo: CredentialRenewalInfo?, issuer: X509Certificate?) async throws
+        -> any SubjectCredentialStoreStoreEntry {
+        throw "Should not have been called"
+    }
+
+}
