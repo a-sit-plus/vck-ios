@@ -68,7 +68,7 @@ final class WalletModel: NSObject, ObservableObject, ASWebAuthenticationPresenta
     }
 
     func openRelyingParty() {
-        UIApplication.shared.open(URL(string: "https://wallet-rp.a-sit.plus/pidsdjwt.html")!)
+        UIApplication.shared.open(URL(string: "https://wallet-rp.a-sit.plus/custom.html")!)
         append("In the RP, create the request and tap Open App Wallet.")
     }
 
@@ -89,14 +89,13 @@ final class WalletModel: NSObject, ObservableObject, ASWebAuthenticationPresenta
             self.presentationState = nil
             self.hasPreparedPresentation = false
             _ = try self.walletInstance()
-            let state = try await self.openId4VpHolder!
-                .startAuthorizationResponsePreparation(input: request).getOrThrow()!
-            let matches = try await self.openId4VpHolder!
-                .getMatchingCredentials(preparationState: state).getOrThrow()!
+            let state = try await kotlinValue(self.openId4VpHolder!
+                .startAuthorizationResponsePreparation(input: request))!
+            let matches = try await kotlinValue(self.openId4VpHolder!
+                .getMatchingCredentials(preparationState: state))!
             self.presentationState = state
             self.hasPreparedPresentation = true
             self.append("OpenID4VP request prepared. Audience: \(state.audience)")
-            self.append("Request object verified: \(String(describing: state.requestObjectVerified))")
             self.append("Credentials/claims proposed for consent: \(String(describing: matches))")
         } }
     }
@@ -104,11 +103,11 @@ final class WalletModel: NSObject, ObservableObject, ASWebAuthenticationPresenta
     func approvePresentation() {
         Task { await run {
             guard let state = self.presentationState else { return }
-            let result = try await self.openId4VpHolder!
+            let result = try await kotlinValue(self.openId4VpHolder!
                 .finalizeAuthorizationResponse(
                     preparationState: state,
                     credentialPresentation: nil
-                ).getOrThrow()!
+                ))!
             let returnUrl = try await self.send(result)
             self.presentationState = nil
             self.hasPreparedPresentation = false
@@ -128,8 +127,8 @@ final class WalletModel: NSObject, ObservableObject, ASWebAuthenticationPresenta
         //cheap trick
         let key = try loadOrCreateSecureEnclaveKey()
         let pointer = Unmanaged.passUnretained(key).toOpaque()
-        let keyMaterial = KeyMaterialAdapter.shared.fromSecKey(privateKey: pointer).getOrThrow()!
-        let store = SwiftSubjectCredentialStore()
+        let keyMaterial = try kotlinValue(KeyMaterialAdapter.shared.fromSecKey(privateKey: pointer))!
+        let store = SubjectCredentialStoreAdapter(SwiftSubjectCredentialStore())
         let created = BasicWallet(keyMaterial: keyMaterial, subjectCredentialStore: store)
         //use a builder wrapper
         let builder = OpenId4VpHolderBuilder(

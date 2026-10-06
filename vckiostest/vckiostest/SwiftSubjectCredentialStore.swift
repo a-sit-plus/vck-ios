@@ -1,16 +1,15 @@
 import Foundation
 import vck_ios
 
-class SwiftSubjectCredentialStore: SubjectCredentialStore {
+class SwiftSubjectCredentialStore: SwiftCredentialStore {
     private var credentials: [UUID: any SubjectCredentialStoreStoreEntry] = [:]
 
-    func __getCredentials(credentialSchemes: Any?) async throws -> KmmResult<NSArray> {
+    func getCredentials(credentialSchemes: [any CredentialScheme]? = nil) async throws -> [any SubjectCredentialStoreStoreEntry] {
         let entries = Array(credentials.values)
-        guard let credentialSchemes else { return KmmResult(value: entries as NSArray) }
+        guard let schemes = credentialSchemes else { return entries }
 
-        let schemes = (credentialSchemes as? [Any])?.compactMap { $0 as? any CredentialScheme } ?? []
         let filtered = entries.filter { entry in
-            guard let identifier = entry.schemeIdentifier else { return false }
+            let identifier = entry.schemeIdentifier
             return schemes.contains { scheme in
                 switch entry {
                 case is SubjectCredentialStoreStoreEntryIso:
@@ -24,76 +23,48 @@ class SwiftSubjectCredentialStore: SubjectCredentialStore {
                 }
             }
         }
-        return KmmResult(value: filtered as NSArray)
+        return filtered
     }
 
-    func __storeCredential(issuerSigned: IssuerSigned, scheme: any IsoMdocCredentialScheme, renewalInfo: CredentialRenewalInfo?) async throws
-        -> any SubjectCredentialStoreStoreEntry {
-        try await __storeCredential(
-            issuerSigned: issuerSigned,
-            scheme: scheme,
-            renewalInfo: renewalInfo,
-            issuer: nil
-        )
-    }
-
-    func __storeCredential(issuerSigned: IssuerSigned, scheme: any IsoMdocCredentialScheme, renewalInfo: CredentialRenewalInfo?, issuer: X509Certificate?) async throws
+    func storeCredential(issuerSigned: IssuerSigned, scheme: any IsoMdocCredentialScheme, renewalInfo: CredentialRenewalInfo? = nil, issuer: X509Certificate? = nil) async throws
         -> any SubjectCredentialStoreStoreEntry {
         store(SubjectCredentialStoreStoreEntryIso(
             issuerSigned: issuerSigned,
-            schemaUri: nil,
             renewalInfo: renewalInfo,
             issuer: issuer,
-            schemeIdentifier: scheme.isoDocType
+            schemeIdentifier: try requiredIdentifier(scheme.isoDocType)
         ))
     }
 
-    func __storeCredential(vc: VerifiableCredentialJws, vcSerialized: String, scheme: any VcJwtCredentialScheme, renewalInfo: CredentialRenewalInfo?) async throws
-        -> any SubjectCredentialStoreStoreEntry {
-        try await __storeCredential(
-            vc: vc,
-            vcSerialized: vcSerialized,
-            scheme: scheme,
-            renewalInfo: renewalInfo,
-            issuer: nil
-        )
-    }
-
-    func __storeCredential(vc: VerifiableCredentialJws, vcSerialized: String, scheme: any VcJwtCredentialScheme, renewalInfo: CredentialRenewalInfo?, issuer: X509Certificate?) async throws
+    func storeCredential(vc: VerifiableCredentialJws, vcSerialized: String, scheme: any VcJwtCredentialScheme, renewalInfo: CredentialRenewalInfo? = nil, issuer: X509Certificate? = nil) async throws
         -> any SubjectCredentialStoreStoreEntry {
         store(SubjectCredentialStoreStoreEntryVc(
             vcSerialized: vcSerialized,
             vc: vc,
-            schemaUri: nil,
             renewalInfo: renewalInfo,
             issuer: issuer,
-            schemeIdentifier: scheme.vcType
+            schemeIdentifier: try requiredIdentifier(scheme.vcType)
         ))
     }
 
-    func __storeCredential(vc: VerifiableCredentialSdJwt, vcSerialized: String, disclosures: [String: Any], scheme: any SdJwtCredentialScheme, renewalInfo: CredentialRenewalInfo?) async throws
-        -> any SubjectCredentialStoreStoreEntry {
-        try await __storeCredential(
-            vc: vc,
-            vcSerialized: vcSerialized,
-            disclosures: disclosures,
-            scheme: scheme,
-            renewalInfo: renewalInfo,
-            issuer: nil
-        )
-    }
-
-    func __storeCredential(vc: VerifiableCredentialSdJwt, vcSerialized: String, disclosures: [String: Any], scheme: any SdJwtCredentialScheme, renewalInfo: CredentialRenewalInfo?, issuer: X509Certificate?) async throws
+    func storeCredential(vc: VerifiableCredentialSdJwt, vcSerialized: String, disclosures: [String: Any], scheme: any SdJwtCredentialScheme, renewalInfo: CredentialRenewalInfo? = nil, issuer: X509Certificate? = nil) async throws
         -> any SubjectCredentialStoreStoreEntry {
         store(SubjectCredentialStoreStoreEntrySdJwt(
             vcSerialized: vcSerialized,
             sdJwt: vc,
             disclosures: disclosures,
-            schemaUri: nil,
             renewalInfo: renewalInfo,
             issuer: issuer,
-            schemeIdentifier: scheme.sdJwtType
+            schemeIdentifier: try requiredIdentifier(scheme.sdJwtType)
         ))
+    }
+
+    private func requiredIdentifier(_ identifier: String?) throws -> String {
+        guard let identifier else {
+            throw NSError(domain: "SwiftSubjectCredentialStore", code: 1,
+                          userInfo: [NSLocalizedDescriptionKey: "Credential scheme is missing its format identifier"])
+        }
+        return identifier
     }
 
     private func store(_ entry: any SubjectCredentialStoreStoreEntry) -> any SubjectCredentialStoreStoreEntry {

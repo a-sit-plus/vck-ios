@@ -3,12 +3,12 @@ kotlin = "2.4.10"
 
 mdl = "1.4.0"
 eupid-sdjwt = "1.4.0"
-vck = "7.0.1"
+vck = "8.0.0"
 kmmresult = "1.9.3"
 napier = "2.7.1"
-signum = "3.24.0"
-supreme = "0.15.0"
-ktor = "3.5.1"
+signum = "3.26.0"
+supreme = "0.16.0"
+ktor = "3.6.0"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }

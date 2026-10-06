@@ -9,6 +9,7 @@ import at.asitplus.signum.indispensable.josef.io.joseCompliantSerializer
 import at.asitplus.signum.internals.toByteArray
 import at.asitplus.signum.internals.toNSData
 import at.asitplus.openid.ClientNonceResponse
+import at.asitplus.openid.IssuerMetadata
 import at.asitplus.openid.CredentialResponseParameters
 import at.asitplus.openid.CredentialRequestParameters
 import at.asitplus.wallet.lib.data.KeyBindingJws
@@ -60,6 +61,16 @@ object VckSerializer {
     @Throws(SerializationException::class)
     fun joseDeserializeClientNonceResponse(@ObjCName("_") data: NSData): ClientNonceResponse =
         joseCompliantSerializer.decodeFromString<ClientNonceResponse>(data.toByteArray().decodeToString())
+
+    // IssuerMetadata
+
+    @Throws(SerializationException::class)
+    fun joseDeserializeIssuerMetadata(@ObjCName("_") data: NSData): IssuerMetadata =
+        joseCompliantSerializer.decodeFromString<IssuerMetadata>(data.toByteArray().decodeToString())
+
+    @Throws(SerializationException::class)
+    fun joseSerializeIssuerMetadata(@ObjCName("_") metadata: IssuerMetadata): NSData =
+        joseCompliantSerializer.encodeToString(metadata).encodeToByteArray().toNSData()
 
     // CredentialResponseParameters
 

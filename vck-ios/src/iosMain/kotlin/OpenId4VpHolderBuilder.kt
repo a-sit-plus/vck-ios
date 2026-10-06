@@ -70,7 +70,7 @@ class OpenId4VpHolderBuilder(
         keyMaterial = keyMaterial,
         holder = holder ?: HolderAgent(keyMaterial, subjectCredentialStore),
         signIdToken = signIdToken ?: SignJwt(keyMaterial, JwsHeaderCertOrJwk()),
-        encryptJarm = encryptJarm ?: EncryptJwe(keyMaterial),
+        encryptJarm = encryptJarm ?: EncryptJwe(),
         supportedAlgorithms = supportedAlgorithms,
         signDeviceAuthDetached = signDeviceAuthDetached
             ?: SignCoseDetached(keyMaterial, CoseHeaderNone(), CoseHeaderNone()),
