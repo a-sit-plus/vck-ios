@@ -45,8 +45,16 @@ struct vckiostestTests {
     @Test func kotlinResultErrors() throws {
         let success = KmmResult<NSString>(value: "ok")
         #expect(try kotlinValue(success) == "ok")
+        #expect(try success.swiftResult(as: String.self).get() == "ok")
+        #expect(throws: (any Error).self) { try success.swiftResult(as: [String].self).get() }
+        let array = KmmResult<NSArray>(value: ["ok"] as NSArray)
+        #expect(try array.swiftResult(as: [String].self).get() == ["ok"])
+        let empty = KmmResult<NSString>(value: nil)
+        #expect(try empty.swiftResult(as: String?.self).get() == nil)
+        #expect(throws: (any Error).self) { try empty.swiftResult(as: String.self).get() }
         let failure = KmmResult<NSString>(failure: KotlinIllegalArgumentException(message: "failed"))
         #expect(throws: (any Error).self) { try kotlinValue(failure) }
+        #expect(throws: (any Error).self) { try failure.swiftResult(as: String.self).get() }
     }
 
     @Test func walletServiceDefaults() throws {
@@ -71,6 +79,31 @@ struct vckiostestTests {
 
         let before = ClockAdapter.system.now()
         #expect(ClockAdapter.system.now().compareTo(other: before) >= 0)
+    }
+
+    @Test func walletCredentialRequests() async throws {
+        let metadata = try VckSerializer.shared.joseDeserializeIssuerMetadata(Data(#"""
+            {"credential_issuer":"https://issuer.example","credential_endpoint":"https://issuer.example/credential",
+             "credential_configurations_supported":{
+                "pid":{"format":"dc+sd-jwt","vct":"urn:example:pid","scope":"pid"},
+                "address":{"format":"dc+sd-jwt","vct":"urn:example:address","scope":"address"}}}
+            """#.utf8))
+        let format = try #require(metadata.supportedCredentialConfigurations?["pid"])
+        let token = TokenResponseParameters(
+            accessToken: "token", refreshToken: nil, tokenType: "Bearer", expires: nil,
+            scope: nil, authorizationPending: nil, interval: nil, authorizationDetails: nil, credentialId: nil
+        )
+        let wallet = WalletServiceAdapter()
+        let requests: [WalletServiceCredentialRequest] = try await wallet.createCredential(
+            tokenResponse: token, metadata: metadata, credentialFormat: format,
+            previouslyRequestedScope: "pid address"
+        )
+        #expect(Set(requests.compactMap {
+            ($0 as? WalletServiceCredentialRequestPlain)?.request.credentialConfigurationId
+        }) == ["pid", "address"])
+        await #expect(throws: (any Error).self) {
+            try await wallet.createCredential(tokenResponse: token, metadata: metadata, credentialFormat: format)
+        }
     }
 
 }

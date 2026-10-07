@@ -63,8 +63,8 @@ public struct WalletServiceAdapter {
         clientNonce: String? = nil,
         previouslyRequestedScope: String? = nil,
         clock: KotlinClock = ClockAdapter.system
-    ) async throws -> KmmResult<AnyObject> {
-        try await service.createCredential(
+    ) async throws -> [WalletServiceCredentialRequest] {
+        let result = try await service.createCredential(
             tokenResponse: tokenResponse,
             metadata: metadata,
             credentialFormat: credentialFormat,
@@ -72,6 +72,7 @@ public struct WalletServiceAdapter {
             previouslyRequestedScope: previouslyRequestedScope,
             clock: clock
         )
+        return try callbackArgument(kotlinValue(result), as: [WalletServiceCredentialRequest].self)
     }
 }
 
