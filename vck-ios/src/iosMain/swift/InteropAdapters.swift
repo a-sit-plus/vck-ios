@@ -25,6 +25,23 @@ public func kotlinValue<T>(_ result: KmmResult<T>) throws -> T? {
     return result.getOrNull()
 }
 
+@objc public protocol KmmResultSwiftConvertible {
+    var erasedKmmResult: KmmResult<AnyObject> { get }
+}
+
+extension KmmResult: KmmResultSwiftConvertible {
+    // Objective-C generics are erased; the protocol lets Swift extend the result without capturing T.
+    public var erasedKmmResult: KmmResult<AnyObject> { (self as AnyObject) as! KmmResult<AnyObject> }
+}
+
+public extension KmmResultSwiftConvertible {
+    /// Converts to Swift's Result, checking the requested success type (including bridged arrays).
+    func swiftResult<Value>(as type: Value.Type) -> Result<Value, Error> {
+        let result = erasedKmmResult
+        return Result { try callbackArgument(kotlinValue(result), as: type) }
+    }
+}
+
 // The raw invoke exports only allow CancellationException; these calls export all errors.
 @available(iOS 13, macOS 10.15, watchOS 6, tvOS 13, *)
 public extension KotlinSuspendFunction0 {
