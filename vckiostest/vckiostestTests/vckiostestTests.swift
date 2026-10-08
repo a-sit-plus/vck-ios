@@ -81,6 +81,63 @@ struct vckiostestTests {
         #expect(ClockAdapter.system.now().compareTo(other: before) >= 0)
     }
 
+    @Test func keyAttestationCallback() async throws {
+        func base64url(_ data: Data) -> String {
+            data.base64EncodedString().replacingOccurrences(of: "+", with: "-")
+                .replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: "=", with: "")
+        }
+        let keyMaterial = WalletServiceDefaults.keyMaterial
+        let header = base64url(Data(#"{"alg":"ES256"}"#.utf8))
+        let payload = base64url(Data("""
+            {"iat":0,"nonce":"nonce","attested_keys":[\(keyMaterial.jsonWebKey.serialize())]}
+            """.utf8))
+        // Parsing fixture only: signature verification belongs to the attestation verifier.
+        let signature = base64url(Data(repeating: 1, count: 64))
+        let proof = "\(header).\(payload).\(signature)"
+        let parsed = try VckSerializer.shared.joseDeserializeKeyAttestationJwt(proof)
+        #expect(parsed.payload?.nonce == "nonce")
+        #expect(throws: (any Error).self) {
+            try VckSerializer.shared.joseDeserializeKeyAttestationJwt("invalid")
+        }
+        #expect(throws: (any Error).self) {
+            try VckSerializer.shared.joseDeserializeKeyAttestationJwt(
+                "\(header).\(base64url(Data("{}".utf8))).\(signature)"
+            )
+        }
+
+        let metadata = try VckSerializer.shared.joseDeserializeIssuerMetadata(Data(#"""
+            {"credential_issuer":"https://issuer.example","credential_endpoint":"https://issuer.example/credential",
+             "credential_configurations_supported":{"pid":{"format":"dc+sd-jwt","vct":"urn:example:pid",
+                "scope":"pid","proof_types_supported":{"attestation":{"proof_signing_alg_values_supported":["ES256"]}}}}}
+            """#.utf8))
+        let format = try #require(metadata.supportedCredentialConfigurations?["pid"])
+        let token = TokenResponseParameters(
+            accessToken: "token", refreshToken: nil, tokenType: "Bearer", expires: nil,
+            scope: "pid", authorizationPending: nil, interval: nil, authorizationDetails: nil, credentialId: nil
+        )
+        var calls = 0
+        let callback = SwiftSuspendFunction1 { (input: WalletService.KeyAttestationInput) in
+            #expect(input.credentialIssuer == "https://issuer.example")
+            #expect(input.clientNonce == "nonce")
+            calls += 1
+            return KmmResult(value: try VckSerializer.shared.joseDeserializeKeyAttestationJwt(proof))
+        }
+        let wallet = WalletServiceAdapter(keyMaterial: keyMaterial, loadKeyAttestation: callback)
+        let requests = try await wallet.createCredential(
+            tokenResponse: token, metadata: metadata, credentialFormat: format, clientNonce: "nonce"
+        )
+        #expect(calls == 1)
+        let request = try #require(requests.first as? WalletServiceCredentialRequestPlain)
+        #expect(request.request.proofs?.attestation?.first?.description() == proof)
+        let invalidCallback = SwiftSuspendFunction1 { (_: WalletService.KeyAttestationInput) in
+            KmmResult(value: try VckSerializer.shared.joseDeserializeKeyAttestationJwt("invalid"))
+        }
+        let invalidWallet = WalletServiceAdapter(loadKeyAttestation: invalidCallback)
+        await #expect(throws: (any Error).self) {
+            try await invalidWallet.createCredential(tokenResponse: token, metadata: metadata, credentialFormat: format)
+        }
+    }
+
     @Test func walletCredentialRequests() async throws {
         let metadata = try VckSerializer.shared.joseDeserializeIssuerMetadata(Data(#"""
             {"credential_issuer":"https://issuer.example","credential_endpoint":"https://issuer.example/credential",

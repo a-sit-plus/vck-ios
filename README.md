@@ -53,6 +53,22 @@ Conversions copy byte buffers, preserving unsigned Swift byte values.
 The retrieval example handles GET responses; implement POST and header handling
 when required by the issuer's flow.
 
+`loadKeyAttestation` must return a `KmmResult` containing a typed compact JWS, not
+a `String` or `KmmResult<NSString>`. Parse the compact `attestationProof` string in Kotlin:
+
+```swift
+let loadAttestation = SwiftSuspendFunction1 { (input: WalletService.KeyAttestationInput) in
+    let attestationProof: String = try await fetchAttestationProof(input)
+    return KmmResult(value: try VckSerializer.shared.joseDeserializeKeyAttestationJwt(attestationProof))
+}
+let wallet = WalletServiceAdapter(loadKeyAttestation: loadAttestation)
+```
+
+The throwing helper returns `JwsTyped<JwsCompact, KeyAttestationJwt>`; Kotlin's
+`JwsCompactTyped` typealias is exported as `JwsTyped`. Invalid compact JWS or payload
+data throws a Swift error. Wrap the parsed value in `KmmResult` for the callback.
+Parsing does not verify the attestation's signature.
+
 Use callable syntax (`try await callback(argument)`) when invoking callbacks from
 Swift. It routes through a Kotlin export annotated with `@Throws(Throwable::class)`.
 The raw `invoke` export only allows Kotlin `CancellationException`; other Swift

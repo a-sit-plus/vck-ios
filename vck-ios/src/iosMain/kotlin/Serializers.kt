@@ -1,10 +1,14 @@
 @file:OptIn(ExperimentalObjCName::class, ExperimentalSerializationApi::class)
 
 import at.asitplus.dif.PresentationSubmission
+import at.asitplus.KmmResult
+import at.asitplus.catching
 import at.asitplus.iso.IssuerSigned
 import at.asitplus.signum.indispensable.cosef.CoseHeader
 import at.asitplus.signum.indispensable.cosef.io.coseCompliantSerializer
 import at.asitplus.signum.indispensable.josef.JwsHeader
+import at.asitplus.signum.indispensable.josef.JwsCompactTyped
+import at.asitplus.signum.indispensable.josef.KeyAttestationJwt
 import at.asitplus.signum.indispensable.josef.io.joseCompliantSerializer
 import at.asitplus.signum.internals.toByteArray
 import at.asitplus.signum.internals.toNSData
@@ -26,6 +30,11 @@ import kotlin.experimental.ExperimentalObjCName
 object VckSerializer {
 
     // JOSE / JSON
+
+    /** Parses compact JWS and its payload; does not verify the attestation signature. */
+    @Throws(SerializationException::class)
+    fun joseDeserializeKeyAttestationJwt(@ObjCName("_") string: String): JwsCompactTyped<KeyAttestationJwt> =
+        JwsCompactTyped<KeyAttestationJwt>(string)
 
     // JwsHeader
 
