@@ -3,6 +3,8 @@
 import at.asitplus.dif.PresentationSubmission
 import at.asitplus.KmmResult
 import at.asitplus.catching
+import at.asitplus.dcapi.ios.IosDcApiMdocPreRequestSummary
+import at.asitplus.dcapi.request.IsoMdocRequest
 import at.asitplus.iso.IssuerSigned
 import at.asitplus.signum.indispensable.cosef.CoseHeader
 import at.asitplus.signum.indispensable.cosef.io.coseCompliantSerializer
@@ -102,6 +104,24 @@ object VckSerializer {
     @Throws(SerializationException::class)
     fun joseSerializePresentationSubmission(@ObjCName("_") submission: PresentationSubmission): String =
         joseCompliantSerializer.encodeToString(submission)
+
+    // Digital Credentials API
+
+    @Throws(SerializationException::class)
+    fun joseDeserializeIsoMdocRequest(@ObjCName("_") data: NSData): IsoMdocRequest =
+        joseCompliantSerializer.decodeFromString<IsoMdocRequest>(data.toByteArray().decodeToString())
+
+    @Throws(SerializationException::class)
+    fun joseSerializeIsoMdocRequest(@ObjCName("_") request: IsoMdocRequest): NSData =
+        joseCompliantSerializer.encodeToString(request).encodeToByteArray().toNSData()
+
+    @Throws(SerializationException::class)
+    fun joseDeserializeIosDcApiMdocPreRequestSummary(@ObjCName("_") data: NSData): IosDcApiMdocPreRequestSummary =
+        joseCompliantSerializer.decodeFromString<IosDcApiMdocPreRequestSummary>(data.toByteArray().decodeToString())
+
+    @Throws(SerializationException::class)
+    fun joseSerializeIosDcApiMdocPreRequestSummary(@ObjCName("_") summary: IosDcApiMdocPreRequestSummary): NSData =
+        joseCompliantSerializer.encodeToString(summary).encodeToByteArray().toNSData()
 
     // COSE / binary
 

@@ -20,6 +20,9 @@ public extension KotlinByteArray {
 }
 
 /// Unwraps without calling Kotlin's unannotated, potentially fatal getOrThrow export.
+/// Always returns an optional: Objective-C export loses the nullability of Kotlin's T.
+/// Use `result.swiftResult(as: String.self).get()` for a checked non-optional value,
+/// or request `String?.self` to allow a successful null.
 public func kotlinValue<T>(_ result: KmmResult<T>) throws -> T? {
     if let cause = result.exceptionOrNull() { try SwiftErrorBridge.shared.rethrow(cause: cause) }
     return result.getOrNull()

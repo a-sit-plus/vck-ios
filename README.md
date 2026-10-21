@@ -18,6 +18,7 @@ let details = wallet.buildAuthorizationDetails(credentialConfigurationId: "pid")
 let clock = ClockAdapter.system // Kotlin Clock.System
 let metadata = try VckSerializer.shared.joseDeserializeIssuerMetadata(jsonData)
 let json = try VckSerializer.shared.joseSerializeIssuerMetadata(metadata)
+let tokenResponse = TokenResponseParameters(accessToken: "token", tokenType: "Bearer")
 let requests = try await wallet.createCredential(
     tokenResponse: tokenResponse, metadata: metadata, credentialFormat: credentialFormat
 )
