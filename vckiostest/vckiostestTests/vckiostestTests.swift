@@ -11,6 +11,32 @@ import vck_ios
 
 struct vckiostestTests {
 
+    @Test func tokenResponseDefaults() {
+        let token = TokenResponseParameters(accessToken: "token", tokenType: "Bearer")
+        #expect(token.accessToken == "token")
+        #expect(token.tokenType == "Bearer")
+        #expect(token.refreshToken == nil)
+        #expect(token.expires == nil)
+        #expect(token.scope == nil)
+        #expect(token.authorizationPending == nil)
+        #expect(token.interval == nil)
+        #expect(token.authorizationDetails == nil)
+        #expect(token.credentialId == nil)
+
+        let custom = TokenResponseParameters(
+            accessToken: "custom", tokenType: "DPoP", refreshToken: "refresh",
+            scope: "pid", authorizationPending: KotlinBoolean(bool: false),
+            authorizationDetails: [], credentialId: "credential"
+        )
+        #expect(custom.accessToken == "custom")
+        #expect(custom.tokenType == "DPoP")
+        #expect(custom.refreshToken == "refresh")
+        #expect(custom.scope == "pid")
+        #expect(custom.authorizationPending?.boolValue == false)
+        #expect(custom.authorizationDetails?.isEmpty == true)
+        #expect(custom.credentialId == "credential")
+    }
+
     @Test func byteArrayConversions() throws {
         let bytes = Array(UInt8.min...UInt8.max)
         let kotlin = try bytes.kotlinByteArray
