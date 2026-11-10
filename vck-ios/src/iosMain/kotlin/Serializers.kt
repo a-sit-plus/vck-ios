@@ -1,6 +1,5 @@
 @file:OptIn(ExperimentalObjCName::class, ExperimentalSerializationApi::class)
 
-import at.asitplus.dif.PresentationSubmission
 import at.asitplus.KmmResult
 import at.asitplus.catching
 import at.asitplus.dcapi.ios.IosDcApiMdocPreRequestSummary
@@ -98,12 +97,6 @@ object VckSerializer {
     @Throws(SerializationException::class)
     fun joseSerializeCredentialRequestParameters(@ObjCName("_") response: CredentialRequestParameters): NSData =
         joseCompliantSerializer.encodeToString(response).encodeToByteArray().toNSData()
-
-    // PresentationSubmission
-
-    @Throws(SerializationException::class)
-    fun joseSerializePresentationSubmission(@ObjCName("_") submission: PresentationSubmission): String =
-        joseCompliantSerializer.encodeToString(submission)
 
     // Digital Credentials API
 

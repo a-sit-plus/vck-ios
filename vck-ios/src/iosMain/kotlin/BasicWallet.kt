@@ -10,10 +10,12 @@ import at.asitplus.wallet.lib.agent.InMemorySubjectCredentialStore
 import at.asitplus.wallet.lib.agent.KeyMaterial
 import at.asitplus.wallet.lib.agent.SignerBasedKeyMaterial
 import at.asitplus.wallet.lib.agent.SubjectCredentialStore
-import at.asitplus.wallet.lib.ktor.openid.OpenId4VciClient
+import at.asitplus.wallet.lib.ktor.openid.OpenId4VciKtorClient
+import at.asitplus.wallet.lib.ktor.openid.ProvisioningContext
 import at.asitplus.wallet.lib.oauth2.OAuth2Client
-import at.asitplus.wallet.lib.oidvci.encodeToParameters
-import at.asitplus.wallet.lib.oidvci.WalletService
+import at.asitplus.openid.encodeToParameters
+import at.asitplus.wallet.lib.oidvci.JwtProofCreator
+import at.asitplus.wallet.lib.oidvci.OpenId4VciClient
 import at.asitplus.wallet.lib.RemoteResourceRetrieverInput
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.darwin.Darwin
@@ -56,15 +58,15 @@ class BasicWallet(
         }
         response.bodyAsText()
     }
-    private val issuance = OpenId4VciClient(
-        engine = Darwin.create(),
-        oid4vciService = WalletService(clientId = CLIENT_ID, keyMaterial = keyMaterial),
-        oauth2InternalClient = OAuth2Client(
+    private val issuance = OpenId4VciKtorClient(
+        httpClient = http,
+        oauth2Client = OAuth2Client(
             clientId = CLIENT_ID,
             redirectUrl = ISSUANCE_CALLBACK,
         ),
+        vciClient = OpenId4VciClient(proofCreators = listOf(JwtProofCreator(keyMaterial))),
     )
-    private var pendingIssuance: at.asitplus.wallet.lib.ktor.openid.ProvisioningContext? = null
+    private var pendingIssuance: ProvisioningContext? = null
 
     /** Uses the issuer's first advertised credential: PID SD-JWT on the A-SIT Plus demo issuer. */
     @Throws(Throwable::class)

@@ -59,7 +59,7 @@ class SwiftBridgeTest {
         }"""
         val metadata = VckSerializer.joseDeserializeIssuerMetadata(json.encodeToByteArray().toNSData())
         assertEquals("https://issuer.example", metadata.credentialIssuer)
-        assertEquals(setOf("pid"), metadata.supportedCredentialConfigurations?.keys)
+        assertEquals(setOf("pid"), metadata.supportedCredentialConfigurations.keys)
         assertEquals(metadata, VckSerializer.joseDeserializeIssuerMetadata(
             VckSerializer.joseSerializeIssuerMetadata(metadata)
         ))

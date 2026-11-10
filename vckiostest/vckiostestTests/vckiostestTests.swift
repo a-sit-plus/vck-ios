@@ -89,13 +89,13 @@ struct vckiostestTests {
         #expect(firstKey !== secondKey)
         #expect(WalletServiceDefaults.encryptionService !== WalletServiceDefaults.encryptionService)
         let wallet = WalletServiceAdapter()
-        #expect(wallet.service.clientId == "https://wallet.a-sit.at/app")
+        #expect(wallet.clientId == "https://wallet.a-sit.at/app")
         let details = try #require(wallet.buildAuthorizationDetails(credentialConfigurationId: "pid").first)
         #expect(details.credentialConfigurationId == "pid")
         #expect(details.locations == nil)
 
         let custom = WalletServiceAdapter(clientId: "https://custom.example/wallet")
-        #expect(custom.service.clientId == "https://custom.example/wallet")
+        #expect(custom.clientId == "https://custom.example/wallet")
         let servers: Set<String> = ["https://auth.example"]
         let multiple = custom.buildAuthorizationDetails(
             credentialConfigurationIds: ["pid", "mdl"], authorizationServers: servers
@@ -136,13 +136,13 @@ struct vckiostestTests {
              "credential_configurations_supported":{"pid":{"format":"dc+sd-jwt","vct":"urn:example:pid",
                 "scope":"pid","proof_types_supported":{"attestation":{"proof_signing_alg_values_supported":["ES256"]}}}}}
             """#.utf8))
-        let format = try #require(metadata.supportedCredentialConfigurations?["pid"])
+        let format = try #require(metadata.supportedCredentialConfigurations["pid"])
         let token = TokenResponseParameters(
             accessToken: "token", refreshToken: nil, tokenType: "Bearer", expires: nil,
             scope: "pid", authorizationPending: nil, interval: nil, authorizationDetails: nil, credentialId: nil
         )
         var calls = 0
-        let callback = SwiftSuspendFunction1 { (input: WalletService.KeyAttestationInput) in
+        let callback = SwiftSuspendFunction1 { (input: OpenId4VciClient.KeyAttestationInput) in
             #expect(input.credentialIssuer == "https://issuer.example")
             #expect(input.clientNonce == "nonce")
             calls += 1
@@ -153,9 +153,9 @@ struct vckiostestTests {
             tokenResponse: token, metadata: metadata, credentialFormat: format, clientNonce: "nonce"
         )
         #expect(calls == 1)
-        let request = try #require(requests.first as? WalletServiceCredentialRequestPlain)
+        let request = try #require(requests.first as? OpenId4VciClientCredentialRequestPlain)
         #expect(request.request.proofs?.attestation?.first?.description() == proof)
-        let invalidCallback = SwiftSuspendFunction1 { (_: WalletService.KeyAttestationInput) in
+        let invalidCallback = SwiftSuspendFunction1 { (_: OpenId4VciClient.KeyAttestationInput) in
             KmmResult(value: try VckSerializer.shared.joseDeserializeKeyAttestationJwt("invalid"))
         }
         let invalidWallet = WalletServiceAdapter(loadKeyAttestation: invalidCallback)
@@ -171,19 +171,26 @@ struct vckiostestTests {
                 "pid":{"format":"dc+sd-jwt","vct":"urn:example:pid","scope":"pid"},
                 "address":{"format":"dc+sd-jwt","vct":"urn:example:address","scope":"address"}}}
             """#.utf8))
-        let format = try #require(metadata.supportedCredentialConfigurations?["pid"])
+        let format = try #require(metadata.supportedCredentialConfigurations["pid"])
         let token = TokenResponseParameters(
             accessToken: "token", refreshToken: nil, tokenType: "Bearer", expires: nil,
             scope: nil, authorizationPending: nil, interval: nil, authorizationDetails: nil, credentialId: nil
         )
         let wallet = WalletServiceAdapter()
-        let requests: [WalletServiceCredentialRequest] = try await wallet.createCredential(
+        let requests: [OpenId4VciClientCredentialRequest] = try await wallet.createCredential(
             tokenResponse: token, metadata: metadata, credentialFormat: format,
             previouslyRequestedScope: "pid address"
         )
-        #expect(Set(requests.compactMap {
-            ($0 as? WalletServiceCredentialRequestPlain)?.request.credentialConfigurationId
-        }) == ["pid", "address"])
+        // Since VC-K 9, only the selected format is requested, even if the scope grants more.
+        #expect(requests.compactMap {
+            ($0 as? OpenId4VciClientCredentialRequestPlain)?.request.credentialConfigurationId
+        } == ["pid"])
+        await #expect(throws: (any Error).self) {
+            try await wallet.createCredential(
+                tokenResponse: token, metadata: metadata, credentialFormat: format,
+                previouslyRequestedScope: "address"
+            )
+        }
         await #expect(throws: (any Error).self) {
             try await wallet.createCredential(tokenResponse: token, metadata: metadata, credentialFormat: format)
         }
