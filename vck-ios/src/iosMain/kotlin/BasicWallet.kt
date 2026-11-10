@@ -4,8 +4,11 @@ import at.asitplus.KmmResult
 import at.asitplus.catching
 import at.asitplus.catchingUnwrapped
 import at.asitplus.openid.IssuerMetadata
+import at.asitplus.openid.OpenIdAuthorizationDetails
 import at.asitplus.openid.TokenResponseParameters
 import at.asitplus.signum.indispensable.SignatureAlgorithm
+import at.asitplus.signum.indispensable.josef.JwsCompactTyped
+import at.asitplus.signum.indispensable.josef.KeyAttestationJwt
 import at.asitplus.signum.indispensable.pki.X509Certificate
 import at.asitplus.signum.supreme.sign.Signer
 import at.asitplus.wallet.lib.agent.CredentialRenewalInfo
@@ -15,8 +18,10 @@ import at.asitplus.wallet.lib.agent.KeyMaterial
 import at.asitplus.wallet.lib.agent.SignerBasedKeyMaterial
 import at.asitplus.wallet.lib.agent.SubjectCredentialStore
 import at.asitplus.wallet.lib.ktor.openid.ProvisioningContext
+import at.asitplus.wallet.lib.oauth2.ClientAttestation
 import at.asitplus.wallet.lib.oauth2.OAuth2Client
 import at.asitplus.wallet.lib.oauth2.OAuth2ProtocolClient
+import at.asitplus.wallet.lib.oidvci.AttestationProofCreator
 import at.asitplus.wallet.lib.oidvci.CredentialIdentifierInfo
 import at.asitplus.wallet.lib.oidvci.JwtProofCreator
 import at.asitplus.wallet.lib.oidvci.OpenId4VciClient
@@ -27,12 +32,16 @@ import at.asitplus.wallet.lib.validation.TrustPolicy
 import at.asitplus.wallet.lib.validation.ValidationPolicy
 import at.asitplus.wallet.lib.validation.firstRejection
 import platform.Security.SecKeyRef
+import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.minutes
 
 //IGNOERE ME, JUST HERE TO STREAMLINE END-TO-END Flow!!!
 
 private const val CLIENT_ID = "https://wallet.a-sit.at/app"
 const val ISSUANCE_CALLBACK = "asitplus-wallet://wallet.a-sit.plus/app/callback/provisioning"
+
+// Requested validity of the WIA and of key attestations, as in Valera.
+private val PREFERRED_STATUS_PERIOD = 31.days
 
 // The demo configures no trust anchors and no status list resolver.
 private val ISSUANCE_POLICY = ValidationPolicy(
@@ -59,18 +68,43 @@ class BasicWallet(
             this(keyMaterial, InMemorySubjectCredentialStore(), transport)
 
     val holder = HolderAgent(keyMaterial, subjectCredentialStore)
-    private val vci = OpenId4VciProtocolClient(
-        vciClient = OpenId4VciClient(proofCreators = listOf(JwtProofCreator(keyMaterial))),
-        oauth2Client = OAuth2ProtocolClient(OAuth2Client(clientId = CLIENT_ID, redirectUrl = ISSUANCE_CALLBACK)),
-    )
-    /** Serializable with [VckSerializer.joseSerializeProvisioningContext], to resume after the app was killed. */
+    private val walletProvider = WalletProviderClient(transport)
+    /** Created per issuance with a fresh WIA; it keeps the DPoP and attestation challenge state of the flow. */
+    private var vci: OpenId4VciProtocolClient? = null
+    /**
+     * Serializable with [VckSerializer.joseSerializeProvisioningContext]. The WIA and its key are kept in memory
+     * only, so after the app was killed, issuance has to start over.
+     */
     var pendingIssuance: ProvisioningContext? = null
+
+    /**
+     * Authenticates the client with a fresh WIA (OAuth 2.0 Attestation-Based Client Authentication), whose key also
+     * binds DPoP, and proves possession of the holder key with key attestations from the wallet provider.
+     */
+    private suspend fun attestedProtocolClient(): OpenId4VciProtocolClient {
+        val (wiaKey, wia) = walletProvider.loadInstanceAttestation(PREFERRED_STATUS_PERIOD)
+        val loadKeyAttestation: suspend (OpenId4VciClient.KeyAttestationInput) -> KmmResult<JwsCompactTyped<KeyAttestationJwt>> =
+            { input -> catching { walletProvider.loadKeyAttestation(wia, wiaKey, keyMaterial, input) } }
+        return OpenId4VciProtocolClient(
+            vciClient = OpenId4VciClient(
+                proofCreators = listOf(
+                    JwtProofCreator(keyMaterial, loadKeyAttestation),
+                    AttestationProofCreator(loadKeyAttestation),
+                )
+            ),
+            oauth2Client = OAuth2ProtocolClient(
+                oAuth2Client = OAuth2Client(clientId = CLIENT_ID, redirectUrl = ISSUANCE_CALLBACK),
+                clientAttestation = ClientAttestation(wiaKey) { catching { wia } },
+            ),
+        )
+    }
 
     /** Uses the issuer's first advertised credential: PID SD-JWT on the A-SIT Plus demo issuer. */
     @Throws(Throwable::class)
     suspend fun startIssuance(issuer: String): String {
         val normalized = issuer.trim().trimEnd('/')
         require(normalized.startsWith("https://")) { "Issuer must be an HTTPS URL" }
+        val vci = attestedProtocolClient().also { this.vci = it }
         val issuerMetadata = vci.loadIssuerMetadata(normalized).execute(transport)
         val credential = vci.parseCredentialMetadata(issuerMetadata).getOrThrow().firstOrNull()
             ?: error("Issuer advertises no credentials")
@@ -95,6 +129,7 @@ class BasicWallet(
     @Throws(Throwable::class)
     suspend fun finishIssuance(callbackUrl: String): Int {
         val context = pendingIssuance ?: error("No issuance is pending")
+        val vci = this.vci ?: error("No issuance client: start the issuance again")
         val format = context.credential.supportedCredentialFormat
         val token = vci.oauth2Client.requestTokenWithAuthCode(
             oauthMetadata = context.oauthMetadata,
@@ -118,12 +153,13 @@ class BasicWallet(
             tokenResponse = token,
             credentialFormats = setOf(format),
             previouslyRequestedScope = format.scope,
-        ).getOrThrow().flatMap { requestCredential(it, context.issuerMetadata, token) }.forEach { received ->
+        ).getOrThrow().flatMap { vci.requestCredential(it, context.issuerMetadata, token) }.forEach { received ->
             val prepared = received.prepareCredentialStorage(holder, scheme, ISSUANCE_POLICY, renewalInfo).getOrThrow()
             holder.storeAccepted(prepared).getOrThrow().storedEntry
                 ?: throw prepared.validation.report.firstRejection() ?: IllegalStateException("Credential rejected")
         }
         pendingIssuance = null
+        this.vci = null
         return holder.getCredentials()?.size ?: 0
     }
 
@@ -131,25 +167,26 @@ class BasicWallet(
     suspend fun credentialCount(): Int = holder.getCredentials()?.size ?: 0
 
     /** Fetches a fresh `c_nonce` for each request, and retries once if the issuer rejects it. */
-    private suspend fun requestCredential(
+    private suspend fun OpenId4VciProtocolClient.requestCredential(
         request: OpenId4VciClient.PreparedCredentialRequest,
         issuerMetadata: IssuerMetadata,
         token: TokenResponseParameters,
         retryOnInvalidNonce: Boolean = true,
     ): List<ReceivedCredential> {
-        val clientNonce = vci.nonceRequest(issuerMetadata)?.execute(transport)
-        val credentialRequest = vci.createCredential(request, issuerMetadata, clientNonce).getOrThrow()
+        val clientNonce = nonceRequest(issuerMetadata)?.execute(transport)
+        val credentialRequest = createCredential(request, issuerMetadata, clientNonce).getOrThrow()
         return catchingUnwrapped {
-            vci.credentialRequest(credentialRequest, issuerMetadata, token, request.credentialFormat).execute(transport)
+            credentialRequest(credentialRequest, issuerMetadata, token, request.credentialFormat).execute(transport)
         }.getOrElse {
-            if (retryOnInvalidNonce && vci.isInvalidNonce(it))
+            if (retryOnInvalidNonce && isInvalidNonce(it))
                 requestCredential(request, issuerMetadata, token, retryOnInvalidNonce = false)
             else throw it
         }
     }
 
-    private fun CredentialIdentifierInfo.authorizationDetails() =
-        vci.vciClient.buildAuthorizationDetails(setOf(credentialIdentifier), issuerMetadata.authorizationServers)
+    private fun CredentialIdentifierInfo.authorizationDetails() = setOf(
+        OpenIdAuthorizationDetails(credentialConfigurationId = credentialIdentifier, locations = issuerMetadata.authorizationServers)
+    )
 }
 
 //SUPER-cheap wrapper
