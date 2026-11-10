@@ -24,8 +24,11 @@ let requests = try await wallet.createCredential(
 )
 ```
 
-Use `wallet.service` for the remaining WalletService API. Optional constructor
-arguments and `createCredential`'s nonce, scope, and clock can all be overridden.
+Use `wallet.service` for the remaining `OpenId4VciClient` API (VC-K 9 renamed
+`WalletService`). Optional constructor arguments (including the proof `clock`) and
+`createCredential`'s nonce, scope, and client ID can all be overridden; pass
+`proofCreators:` to choose the proofs yourself. Since VC-K 9, `createCredential` only
+requests the given `credentialFormat`, even if the token's scope grants more.
 `WalletServiceDefaults` and `ClockAdapter` expose Swift static accessors.
 Default key material and encryption services are fresh
 instances on each access.
@@ -58,7 +61,7 @@ when required by the issuer's flow.
 a `String` or `KmmResult<NSString>`. Parse the compact `attestationProof` string in Kotlin:
 
 ```swift
-let loadAttestation = SwiftSuspendFunction1 { (input: WalletService.KeyAttestationInput) in
+let loadAttestation = SwiftSuspendFunction1 { (input: OpenId4VciClient.KeyAttestationInput) in
     let attestationProof: String = try await fetchAttestationProof(input)
     return KmmResult(value: try VckSerializer.shared.joseDeserializeKeyAttestationJwt(attestationProof))
 }
@@ -108,3 +111,36 @@ The adapter contains the `__` protocol requirements, reports read failures as
 `KmmResult` failures, and converts thrown Swift cancellation to Kotlin cancellation.
 Write failures still require a Kotlin caller that catches them or exports them
 with `@Throws`; the raw upstream `storeCredential` export allows only cancellation.
+
+## VC-K 9 interop
+
+OpenID4VP protocol clients return HTTP exchanges for any HTTP stack. Run them with
+`URLSession` (redirects are not followed, as in VC-K's ktor clients):
+
+```swift
+let client = OpenId4VpProtocolClient(openId4VpHolder: builder.build())
+let state = try await client.prepareAuthorizationResponse(input: requestUrl)
+    .run(as: AuthorizationResponsePreparationState.self)
+// ... finalizeAuthorizationResponse on the holder, then for direct_post:
+let redirectUri = try await client.sendAuthorizationResponse(response: post).run(as: String?.self)
+```
+
+Validation takes a `ValidationPolicy`, which has no default in VC-K 9. Kotlin's
+`Duration` reaches Swift as raw `Int64` bits, so build policies and validators with
+the factories, which take seconds and supply Kotlin's defaults:
+
+```swift
+let policy = try ValidationPolicy.create(
+    trust: TrustPolicyIntegrityOnly.shared, status: StatusPolicySkip.shared,
+    timeLeeway: 300, requireTimeliness: true
+)
+builder.relyingPartyValidator = try RelyingPartyValidator.create(trust: .create(accessCertificates: anchors))
+holderBuilder.credentialValidator = CredentialValidator.create(trustAnchors: issuerAnchors)
+```
+
+A Swift `SwiftCredentialStore` implements `getCredentials` and `storeCredential(entry:)`;
+persist entries with `VckSerializer.shared.joseSerializeStoreEntry(_:)`. `VckSerializer`
+also (de)serializes `ProvisioningContext` and `AuthorizationResponsePreparationState`
+(to resume flows after the app was killed), `TokenResponseParameters`,
+`OAuth2AuthorizationServerMetadata`, and `JsonWebKey` (instead of the deprecated
+`serialize()`).
