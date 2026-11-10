@@ -7,7 +7,13 @@ import at.asitplus.signum.indispensable.cosef.CoseKeyParams
 import at.asitplus.signum.indispensable.cosef.CoseKeyType
 import at.asitplus.signum.internals.toByteArray
 import at.asitplus.signum.internals.toNSData
+import at.asitplus.openid.TokenResponseParameters
 import at.asitplus.wallet.lib.HttpBody
+import at.asitplus.wallet.lib.agent.EphemeralKeyWithoutCert
+import at.asitplus.wallet.lib.agent.SubjectCredentialStore
+import at.asitplus.wallet.lib.data.VerifiableCredentialSdJwt
+import at.asitplus.wallet.lib.ktor.openid.ProvisioningContext
+import at.asitplus.wallet.lib.oidvci.CredentialIdentifierInfo
 import at.asitplus.wallet.lib.PreparedHttpRequest
 import at.asitplus.wallet.lib.ProtocolRequest
 import io.ktor.http.ContentType
@@ -122,5 +128,49 @@ class SwiftBridgeTest {
         assertEquals(HttpStatusCode.Created, response.status)
         assertEquals("https://rp.example/next", response.headers["Location"])
         assertEquals("body", response.body)
+    }
+
+    @Test
+    fun persistenceAndOAuthSerializationRoundTrips() {
+        val key = EphemeralKeyWithoutCert().jsonWebKey
+        assertEquals(key, VckSerializer.joseDeserializeJsonWebKey(VckSerializer.joseSerializeJsonWebKey(key)))
+
+        val token = VckSerializer.joseDeserializeTokenResponseParameters(
+            """{"access_token":"token","token_type":"DPoP","scope":"pid"}""".encodeToByteArray().toNSData()
+        )
+        assertEquals(TokenResponseParameters(accessToken = "token", tokenType = "DPoP", scope = "pid"), token)
+        assertEquals(token, VckSerializer.joseDeserializeTokenResponseParameters(
+            VckSerializer.joseSerializeTokenResponseParameters(token)
+        ))
+
+        val entry = SubjectCredentialStore.StoreEntry.SdJwt(
+            vcSerialized = "eyJ~",
+            sdJwt = VerifiableCredentialSdJwt(verifiableCredentialType = "urn:example:pid"),
+            disclosures = mapOf("digest" to VckSerializer.joseDeserializeSelectiveDisclosureItem(
+                "[\"salt\",\"given_name\",\"Erika\"]"
+            )),
+            schemeIdentifier = "urn:example:pid",
+        )
+        assertEquals(entry, VckSerializer.joseDeserializeStoreEntry(VckSerializer.joseSerializeStoreEntry(entry)))
+
+        val issuerMetadata = VckSerializer.joseDeserializeIssuerMetadata("""{
+            "credential_issuer": "https://issuer.example",
+            "credential_endpoint": "https://issuer.example/credential",
+            "credential_configurations_supported": {"pid": {"format": "dc+sd-jwt", "vct": "urn:example:pid"}}
+        }""".encodeToByteArray().toNSData())
+        val context = ProvisioningContext(
+            state = "state",
+            credential = CredentialIdentifierInfo(
+                issuerMetadata, "pid", issuerMetadata.supportedCredentialConfigurations.getValue("pid")
+            ),
+            oauthMetadata = VckSerializer.joseDeserializeOAuth2AuthorizationServerMetadata(
+                """{"issuer":"https://auth.example","token_endpoint":"https://auth.example/token"}"""
+                    .encodeToByteArray().toNSData()
+            ),
+            issuerMetadata = issuerMetadata,
+        )
+        assertEquals(context, VckSerializer.joseDeserializeProvisioningContext(
+            VckSerializer.joseSerializeProvisioningContext(context)
+        ))
     }
 }

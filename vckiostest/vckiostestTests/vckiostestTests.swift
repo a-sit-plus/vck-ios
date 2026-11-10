@@ -114,8 +114,10 @@ struct vckiostestTests {
         }
         let keyMaterial = WalletServiceDefaults.keyMaterial
         let header = base64url(Data(#"{"alg":"ES256"}"#.utf8))
+        let jwk = try VckSerializer.shared.joseSerializeJsonWebKey(keyMaterial.jsonWebKey)
+        #expect(try VckSerializer.shared.joseDeserializeJsonWebKey(jwk) == keyMaterial.jsonWebKey)
         let payload = base64url(Data("""
-            {"iat":0,"nonce":"nonce","attested_keys":[\(keyMaterial.jsonWebKey.serialize())]}
+            {"iat":0,"nonce":"nonce","attested_keys":[\(String(decoding: jwk, as: UTF8.self))]}
             """.utf8))
         // Parsing fixture only: signature verification belongs to the attestation verifier.
         let signature = base64url(Data(repeating: 1, count: 64))

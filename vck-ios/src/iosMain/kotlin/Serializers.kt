@@ -7,6 +7,7 @@ import at.asitplus.dcapi.request.IsoMdocRequest
 import at.asitplus.iso.IssuerSigned
 import at.asitplus.signum.indispensable.cosef.CoseHeader
 import at.asitplus.signum.indispensable.cosef.io.coseCompliantSerializer
+import at.asitplus.signum.indispensable.josef.JsonWebKey
 import at.asitplus.signum.indispensable.josef.JwsHeader
 import at.asitplus.signum.indispensable.josef.JwsCompactTyped
 import at.asitplus.signum.indispensable.josef.KeyAttestationJwt
@@ -14,10 +15,15 @@ import at.asitplus.signum.indispensable.josef.io.joseCompliantSerializer
 import at.asitplus.signum.internals.toByteArray
 import at.asitplus.signum.internals.toNSData
 import at.asitplus.openid.ClientNonceResponse
+import at.asitplus.openid.OAuth2AuthorizationServerMetadata
+import at.asitplus.openid.TokenResponseParameters
 import at.asitplus.openid.IssuerMetadata
 import at.asitplus.openid.CredentialResponseParameters
 import at.asitplus.openid.CredentialRequestParameters
+import at.asitplus.wallet.lib.agent.SubjectCredentialStore
 import at.asitplus.wallet.lib.data.KeyBindingJws
+import at.asitplus.wallet.lib.ktor.openid.ProvisioningContext
+import at.asitplus.wallet.lib.openid.AuthorizationResponsePreparationState
 import at.asitplus.wallet.lib.data.SelectiveDisclosureItem
 import at.asitplus.wallet.lib.data.VerifiableCredentialJws
 import at.asitplus.wallet.lib.data.VerifiableCredentialSdJwt
@@ -47,6 +53,16 @@ object VckSerializer {
     fun joseSerializeJwsHeader(@ObjCName("_") header: JwsHeader): NSData =
         joseCompliantSerializer.encodeToString(header).encodeToByteArray().toNSData()
 
+    // JsonWebKey, replacing the deprecated JsonWebKey.serialize()
+
+    @Throws(SerializationException::class)
+    fun joseDeserializeJsonWebKey(@ObjCName("_") data: NSData): JsonWebKey =
+        joseCompliantSerializer.decodeFromString<JsonWebKey>(data.toByteArray().decodeToString())
+
+    @Throws(SerializationException::class)
+    fun joseSerializeJsonWebKey(@ObjCName("_") key: JsonWebKey): NSData =
+        joseCompliantSerializer.encodeToString(key).encodeToByteArray().toNSData()
+
     // KeyBindingJws
 
     @Throws(SerializationException::class)
@@ -65,6 +81,49 @@ object VckSerializer {
     fun joseDeserializeSelectiveDisclosureItem(@ObjCName("_") string: String): SelectiveDisclosureItem =
         joseCompliantSerializer.decodeFromString<SelectiveDisclosureItem>(string)
 
+
+    // OAuth 2.0: authorization server metadata and token response, e.g. for WalletServiceAdapter.createCredential
+
+    @Throws(SerializationException::class)
+    fun joseDeserializeOAuth2AuthorizationServerMetadata(@ObjCName("_") data: NSData): OAuth2AuthorizationServerMetadata =
+        joseCompliantSerializer.decodeFromString<OAuth2AuthorizationServerMetadata>(data.toByteArray().decodeToString())
+
+    @Throws(SerializationException::class)
+    fun joseDeserializeTokenResponseParameters(@ObjCName("_") data: NSData): TokenResponseParameters =
+        joseCompliantSerializer.decodeFromString<TokenResponseParameters>(data.toByteArray().decodeToString())
+
+    @Throws(SerializationException::class)
+    fun joseSerializeTokenResponseParameters(@ObjCName("_") response: TokenResponseParameters): NSData =
+        joseCompliantSerializer.encodeToString(response).encodeToByteArray().toNSData()
+
+    // Persistence: a Swift SubjectCredentialStore, and flows interrupted by the browser or the app being killed
+
+    @Throws(SerializationException::class)
+    fun joseDeserializeStoreEntry(@ObjCName("_") data: NSData): SubjectCredentialStore.StoreEntry =
+        joseCompliantSerializer.decodeFromString<SubjectCredentialStore.StoreEntry>(data.toByteArray().decodeToString())
+
+    @Throws(SerializationException::class)
+    fun joseSerializeStoreEntry(@ObjCName("_") entry: SubjectCredentialStore.StoreEntry): NSData =
+        joseCompliantSerializer.encodeToString(entry).encodeToByteArray().toNSData()
+
+    @Throws(SerializationException::class)
+    fun joseDeserializeProvisioningContext(@ObjCName("_") data: NSData): ProvisioningContext =
+        joseCompliantSerializer.decodeFromString<ProvisioningContext>(data.toByteArray().decodeToString())
+
+    @Throws(SerializationException::class)
+    fun joseSerializeProvisioningContext(@ObjCName("_") context: ProvisioningContext): NSData =
+        joseCompliantSerializer.encodeToString(context).encodeToByteArray().toNSData()
+
+    @Throws(SerializationException::class)
+    fun joseDeserializeAuthorizationResponsePreparationState(
+        @ObjCName("_") data: NSData,
+    ): AuthorizationResponsePreparationState = joseCompliantSerializer
+        .decodeFromString<AuthorizationResponsePreparationState>(data.toByteArray().decodeToString())
+
+    @Throws(SerializationException::class)
+    fun joseSerializeAuthorizationResponsePreparationState(
+        @ObjCName("_") state: AuthorizationResponsePreparationState,
+    ): NSData = joseCompliantSerializer.encodeToString(state).encodeToByteArray().toNSData()
 
     // NonceResponse
 
