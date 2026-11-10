@@ -1,7 +1,7 @@
 import Foundation
 
-public enum WalletServiceDefaults {
-    private static var shared: WalletServiceDefaultsBridge { WalletServiceDefaultsBridge.shared }
+public enum OpenId4VciClientDefaults {
+    private static var shared: OpenId4VciClientDefaultsBridge { OpenId4VciClientDefaultsBridge.shared }
     public static var keyMaterial: KeyMaterial { shared.keyMaterial }
     public static var encryptionService: WalletEncryptionService { shared.encryptionService }
     public static var remoteResourceRetriever: KotlinSuspendFunction1 { shared.remoteResourceRetriever }
@@ -13,9 +13,9 @@ public enum ClockAdapter {
     public static var system: KotlinClock { shared.system }
 }
 
-/// Native Swift defaults, bundled into the framework by SKIE.
-public struct WalletServiceAdapter {
-    public let service: OpenId4VciClient
+/// Native Swift defaults for `OpenId4VciClient`, bundled into the framework by SKIE.
+public struct OpenId4VciClientAdapter {
+    public let client: OpenId4VciClient
     /// Default `client_id` (issuer of proof JWTs) for `createCredential`.
     public let clientId: String
 
@@ -23,11 +23,11 @@ public struct WalletServiceAdapter {
     /// a JWT proof, plus an attestation proof when `loadKeyAttestation` is set.
     public init(
         clientId: String = "https://wallet.a-sit.at/app",
-        keyMaterial: KeyMaterial = WalletServiceDefaults.keyMaterial,
-        remoteResourceRetriever: KotlinSuspendFunction1 = WalletServiceDefaults.remoteResourceRetriever,
-        encryptionService: WalletEncryptionService = WalletServiceDefaults.encryptionService,
+        keyMaterial: KeyMaterial = OpenId4VciClientDefaults.keyMaterial,
+        remoteResourceRetriever: KotlinSuspendFunction1 = OpenId4VciClientDefaults.remoteResourceRetriever,
+        encryptionService: WalletEncryptionService = OpenId4VciClientDefaults.encryptionService,
         loadKeyAttestation: KotlinSuspendFunction1? = nil,
-        selectProofJwtKeyBinding: KotlinSuspendFunction1 = WalletServiceDefaults.selectProofJwtKeyBinding,
+        selectProofJwtKeyBinding: KotlinSuspendFunction1 = OpenId4VciClientDefaults.selectProofJwtKeyBinding,
         clock: KotlinClock = ClockAdapter.system
     ) {
         var proofCreators: [ProofCreator] = [JwtProofCreator(
@@ -50,12 +50,12 @@ public struct WalletServiceAdapter {
     /// The first proof creator accepted by the issuer for a credential is used.
     public init(
         clientId: String = "https://wallet.a-sit.at/app",
-        remoteResourceRetriever: KotlinSuspendFunction1 = WalletServiceDefaults.remoteResourceRetriever,
-        encryptionService: WalletEncryptionService = WalletServiceDefaults.encryptionService,
+        remoteResourceRetriever: KotlinSuspendFunction1 = OpenId4VciClientDefaults.remoteResourceRetriever,
+        encryptionService: WalletEncryptionService = OpenId4VciClientDefaults.encryptionService,
         proofCreators: [ProofCreator]
     ) {
         self.clientId = clientId
-        service = OpenId4VciClient(
+        client = OpenId4VciClient(
             clientId: clientId,
             remoteResourceRetriever: remoteResourceRetriever,
             encryptionService: encryptionService,
@@ -67,7 +67,7 @@ public struct WalletServiceAdapter {
         credentialConfigurationId: String,
         authorizationServers: Set<String>? = nil
     ) -> Set<OpenIdAuthorizationDetails> {
-        service.buildAuthorizationDetails(
+        client.buildAuthorizationDetails(
             credentialConfigurationId: credentialConfigurationId,
             authorizationServers: authorizationServers
         )
@@ -77,11 +77,14 @@ public struct WalletServiceAdapter {
         credentialConfigurationIds: Set<String>,
         authorizationServers: Set<String>? = nil
     ) -> Set<OpenIdAuthorizationDetails> {
-        service.buildAuthorizationDetails(
+        client.buildAuthorizationDetails(
             credentialConfigurationIds: credentialConfigurationIds,
             authorizationServers: authorizationServers
         )
     }
+
+    @available(*, deprecated, renamed: "client")
+    public var service: OpenId4VciClient { client }
 
     /// `clientId` defaults to the adapter's; the proof clock is set in `init`.
     @available(iOS 13, macOS 10.15, watchOS 6, tvOS 13, *)
@@ -93,7 +96,7 @@ public struct WalletServiceAdapter {
         previouslyRequestedScope: String? = nil,
         clientId: String? = nil
     ) async throws -> [OpenId4VciClientCredentialRequest] {
-        let result = try await service.createCredential(
+        let result = try await client.createCredential(
             tokenResponse: tokenResponse,
             metadata: metadata,
             credentialFormat: credentialFormat,
@@ -118,3 +121,9 @@ public extension OpenId4VciClient.RequestOptions {
         )
     }
 }
+
+@available(*, deprecated, renamed: "OpenId4VciClientAdapter")
+public typealias WalletServiceAdapter = OpenId4VciClientAdapter
+
+@available(*, deprecated, renamed: "OpenId4VciClientDefaults")
+public typealias WalletServiceDefaults = OpenId4VciClientDefaults

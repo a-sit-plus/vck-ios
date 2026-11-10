@@ -83,18 +83,18 @@ struct vckiostestTests {
         #expect(throws: (any Error).self) { try failure.swiftResult(as: String.self).get() }
     }
 
-    @Test func walletServiceDefaults() throws {
-        let firstKey = WalletServiceDefaults.keyMaterial
-        let secondKey = WalletServiceDefaults.keyMaterial
+    @Test func openId4VciClientDefaults() throws {
+        let firstKey = OpenId4VciClientDefaults.keyMaterial
+        let secondKey = OpenId4VciClientDefaults.keyMaterial
         #expect(firstKey !== secondKey)
-        #expect(WalletServiceDefaults.encryptionService !== WalletServiceDefaults.encryptionService)
-        let wallet = WalletServiceAdapter()
+        #expect(OpenId4VciClientDefaults.encryptionService !== OpenId4VciClientDefaults.encryptionService)
+        let wallet = OpenId4VciClientAdapter()
         #expect(wallet.clientId == "https://wallet.a-sit.at/app")
         let details = try #require(wallet.buildAuthorizationDetails(credentialConfigurationId: "pid").first)
         #expect(details.credentialConfigurationId == "pid")
         #expect(details.locations == nil)
 
-        let custom = WalletServiceAdapter(clientId: "https://custom.example/wallet")
+        let custom = OpenId4VciClientAdapter(clientId: "https://custom.example/wallet")
         #expect(custom.clientId == "https://custom.example/wallet")
         let servers: Set<String> = ["https://auth.example"]
         let multiple = custom.buildAuthorizationDetails(
@@ -112,7 +112,7 @@ struct vckiostestTests {
             data.base64EncodedString().replacingOccurrences(of: "+", with: "-")
                 .replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: "=", with: "")
         }
-        let keyMaterial = WalletServiceDefaults.keyMaterial
+        let keyMaterial = OpenId4VciClientDefaults.keyMaterial
         let header = base64url(Data(#"{"alg":"ES256"}"#.utf8))
         let jwk = try VckSerializer.shared.joseSerializeJsonWebKey(keyMaterial.jsonWebKey)
         #expect(try VckSerializer.shared.joseDeserializeJsonWebKey(jwk) == keyMaterial.jsonWebKey)
@@ -150,7 +150,7 @@ struct vckiostestTests {
             calls += 1
             return KmmResult(value: try VckSerializer.shared.joseDeserializeKeyAttestationJwt(proof))
         }
-        let wallet = WalletServiceAdapter(keyMaterial: keyMaterial, loadKeyAttestation: callback)
+        let wallet = OpenId4VciClientAdapter(keyMaterial: keyMaterial, loadKeyAttestation: callback)
         let requests = try await wallet.createCredential(
             tokenResponse: token, metadata: metadata, credentialFormat: format, clientNonce: "nonce"
         )
@@ -160,7 +160,7 @@ struct vckiostestTests {
         let invalidCallback = SwiftSuspendFunction1 { (_: OpenId4VciClient.KeyAttestationInput) in
             KmmResult(value: try VckSerializer.shared.joseDeserializeKeyAttestationJwt("invalid"))
         }
-        let invalidWallet = WalletServiceAdapter(loadKeyAttestation: invalidCallback)
+        let invalidWallet = OpenId4VciClientAdapter(loadKeyAttestation: invalidCallback)
         await #expect(throws: (any Error).self) {
             try await invalidWallet.createCredential(tokenResponse: token, metadata: metadata, credentialFormat: format)
         }
@@ -178,7 +178,7 @@ struct vckiostestTests {
             accessToken: "token", refreshToken: nil, tokenType: "Bearer", expires: nil,
             scope: nil, authorizationPending: nil, interval: nil, authorizationDetails: nil, credentialId: nil
         )
-        let wallet = WalletServiceAdapter()
+        let wallet = OpenId4VciClientAdapter()
         let requests: [OpenId4VciClientCredentialRequest] = try await wallet.createCredential(
             tokenResponse: token, metadata: metadata, credentialFormat: format,
             previouslyRequestedScope: "pid address"

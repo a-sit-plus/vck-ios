@@ -8,9 +8,9 @@ import at.asitplus.wallet.lib.oidvci.WalletEncryptionService
 import kotlin.time.Clock
 
 /** Kotlin defaults that Swift cannot construct directly. */
-@ObjCName(swiftName = "WalletServiceDefaultsBridge")
-object WalletServiceDefaults {
-    // Fresh keys and encryption state for each service, as in WalletService's constructor.
+@ObjCName(swiftName = "OpenId4VciClientDefaultsBridge")
+object OpenId4VciClientDefaults {
+    // Fresh keys and encryption state for each client, as in OpenId4VciClient's constructor.
     val keyMaterial: KeyMaterial get() = EphemeralKeyWithoutCert()
     val encryptionService: WalletEncryptionService get() = WalletEncryptionService()
     val remoteResourceRetriever: RemoteResourceRetrieverFunction = { null }

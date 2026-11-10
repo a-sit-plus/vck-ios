@@ -82,7 +82,7 @@ object VckSerializer {
         joseCompliantSerializer.decodeFromString<SelectiveDisclosureItem>(string)
 
 
-    // OAuth 2.0: authorization server metadata and token response, e.g. for WalletServiceAdapter.createCredential
+    // OAuth 2.0: authorization server metadata and token response, e.g. for OpenId4VciClientAdapter.createCredential
 
     @Throws(SerializationException::class)
     fun joseDeserializeOAuth2AuthorizationServerMetadata(@ObjCName("_") data: NSData): OAuth2AuthorizationServerMetadata =

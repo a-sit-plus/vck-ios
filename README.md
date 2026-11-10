@@ -12,8 +12,8 @@ overload generation stays disabled.
 ```swift
 import vck_ios
 
-let keyMaterial = WalletServiceDefaults.keyMaterial
-let wallet = WalletServiceAdapter(clientId: "https://wallet.example", keyMaterial: keyMaterial)
+let keyMaterial = OpenId4VciClientDefaults.keyMaterial
+let wallet = OpenId4VciClientAdapter(clientId: "https://wallet.example", keyMaterial: keyMaterial)
 let details = wallet.buildAuthorizationDetails(credentialConfigurationId: "pid")
 let clock = ClockAdapter.system // Kotlin Clock.System
 let metadata = try VckSerializer.shared.joseDeserializeIssuerMetadata(jsonData)
@@ -24,12 +24,12 @@ let requests = try await wallet.createCredential(
 )
 ```
 
-Use `wallet.service` for the remaining `OpenId4VciClient` API (VC-K 9 renamed
-`WalletService`). Optional constructor arguments (including the proof `clock`) and
+Use `wallet.client` for the remaining `OpenId4VciClient` API (VC-K 9 renamed
+`WalletService`; the old adapter names remain as deprecated aliases). Optional constructor arguments (including the proof `clock`) and
 `createCredential`'s nonce, scope, and client ID can all be overridden; pass
 `proofCreators:` to choose the proofs yourself. Since VC-K 9, `createCredential` only
 requests the given `credentialFormat`, even if the token's scope grants more.
-`WalletServiceDefaults` and `ClockAdapter` expose Swift static accessors.
+`OpenId4VciClientDefaults` and `ClockAdapter` expose Swift static accessors.
 Default key material and encryption services are fresh
 instances on each access.
 
@@ -42,7 +42,7 @@ let retriever = SwiftSuspendFunction1 { (input: RemoteResourceRetrieverInput) ->
     let (data, _) = try await URLSession.shared.data(from: url)
     return String(data: data, encoding: .utf8)
 }
-let wallet = WalletServiceAdapter(remoteResourceRetriever: retriever)
+let wallet = OpenId4VciClientAdapter(remoteResourceRetriever: retriever)
 let response = try await retriever(input) // safe callable syntax, not the raw invoke export
 let kotlinBytes = try Data([0, 128, 255]).kotlinByteArray
 let swiftBytes = kotlinBytes.bytes // or kotlinBytes.data
@@ -65,7 +65,7 @@ let loadAttestation = SwiftSuspendFunction1 { (input: OpenId4VciClient.KeyAttest
     let attestationProof: String = try await fetchAttestationProof(input)
     return KmmResult(value: try VckSerializer.shared.joseDeserializeKeyAttestationJwt(attestationProof))
 }
-let wallet = WalletServiceAdapter(loadKeyAttestation: loadAttestation)
+let wallet = OpenId4VciClientAdapter(loadKeyAttestation: loadAttestation)
 ```
 
 The throwing helper returns `JwsTyped<JwsCompact, KeyAttestationJwt>`; Kotlin's
