@@ -16,6 +16,10 @@ import at.asitplus.wallet.lib.oauth2.OAuth2Client
 import at.asitplus.openid.encodeToParameters
 import at.asitplus.wallet.lib.oidvci.JwtProofCreator
 import at.asitplus.wallet.lib.oidvci.OpenId4VciClient
+import at.asitplus.wallet.lib.validation.StatusPolicy
+import at.asitplus.wallet.lib.validation.TrustPolicy
+import at.asitplus.wallet.lib.validation.ValidationPolicy
+import at.asitplus.wallet.lib.validation.firstRejection
 import at.asitplus.wallet.lib.RemoteResourceRetrieverInput
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.darwin.Darwin
@@ -27,11 +31,20 @@ import io.ktor.http.HttpMethod
 import io.ktor.http.URLBuilder
 import io.ktor.http.parameters
 import platform.Security.SecKeyRef
+import kotlin.time.Duration.Companion.minutes
 
 //IGNOERE ME, JUST HERE TO STREAMLINE END-TO-END Flow!!!
 
 private const val CLIENT_ID = "https://wallet.a-sit.at/app"
 const val ISSUANCE_CALLBACK = "asitplus-wallet://wallet.a-sit.plus/app/callback/provisioning"
+
+// The demo configures no trust anchors and no status list resolver.
+private val ISSUANCE_POLICY = ValidationPolicy(
+    trust = TrustPolicy.IntegrityOnly,
+    status = StatusPolicy.Skip,
+    timeLeeway = 5.minutes,
+    requireTimeliness = true,
+)
 
 private class SecKeyMaterial(signer: Signer) : SignerBasedKeyMaterial(signer) {
     override suspend fun getCertificate(): X509Certificate? = null
@@ -85,7 +98,10 @@ class BasicWallet(
     suspend fun finishIssuance(callbackUrl: String): Int {
         val context = pendingIssuance ?: error("No issuance is pending")
         val result = issuance.resumeWithAuthCode(callbackUrl, context).getOrThrow()
-        result.credentials.forEach { holder.storeCredential(it, result.refreshToken).getOrThrow() }
+        result.prepareCredentialStorage(holder, ISSUANCE_POLICY).getOrThrow().forEach { prepared ->
+            holder.storeAccepted(prepared).getOrThrow().storedEntry
+                ?: throw prepared.validation.report.firstRejection() ?: IllegalStateException("Credential rejected")
+        }
         pendingIssuance = null
         return holder.getCredentials()?.size ?: 0
     }
