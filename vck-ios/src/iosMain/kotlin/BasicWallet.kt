@@ -37,7 +37,8 @@ import kotlin.time.Duration.Companion.minutes
 
 //IGNOERE ME, JUST HERE TO STREAMLINE END-TO-END Flow!!!
 
-private const val CLIENT_ID = "https://wallet.a-sit.at/app"
+// Same client as Valera, which the A-SIT Plus demo issuer and wallet provider know.
+private const val CLIENT_ID = "https://wallet.a-sit.plus/app"
 const val ISSUANCE_CALLBACK = "asitplus-wallet://wallet.a-sit.plus/app/callback/provisioning"
 
 // Requested validity of the WIA and of key attestations, as in Valera.
