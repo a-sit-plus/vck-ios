@@ -70,13 +70,18 @@ class BasicWallet(
 
     val holder = HolderAgent(keyMaterial, subjectCredentialStore)
     private val walletProvider = WalletProviderClient(transport)
-    /** Created per issuance with a fresh WIA; it keeps the DPoP and attestation challenge state of the flow. */
-    private var vci: OpenId4VciProtocolClient? = null
+    /**
+     * One issuance flow: its [context], and the [client] built for it with a fresh WIA, which keeps the DPoP and
+     * attestation challenge state of the flow, so [finishIssuance] has to use the same instance.
+     */
+    private class PendingIssuance(val context: ProvisioningContext, val client: OpenId4VciProtocolClient)
+    private var pending: PendingIssuance? = null
+
     /**
      * Serializable with [VckSerializer.joseSerializeProvisioningContext]. The WIA and its key are kept in memory
      * only, so after the app was killed, issuance has to start over.
      */
-    var pendingIssuance: ProvisioningContext? = null
+    val pendingIssuance: ProvisioningContext? get() = pending?.context
 
     /**
      * Authenticates the client with a fresh WIA (OAuth 2.0 Attestation-Based Client Authentication), whose key also
@@ -105,7 +110,7 @@ class BasicWallet(
     suspend fun startIssuance(issuer: String): String {
         val normalized = issuer.trim().trimEnd('/')
         require(normalized.startsWith("https://")) { "Issuer must be an HTTPS URL" }
-        val vci = attestedProtocolClient().also { this.vci = it }
+        val vci = attestedProtocolClient()
         val issuerMetadata = vci.loadIssuerMetadata(normalized).execute(transport)
         val credential = vci.parseCredentialMetadata(issuerMetadata).getOrThrow().firstOrNull()
             ?: error("Issuer advertises no credentials")
@@ -118,19 +123,23 @@ class BasicWallet(
             scope = credential.supportedCredentialFormat.scope,
             issuerMetadata = issuerMetadata,
         ).execute(transport)
-        pendingIssuance = ProvisioningContext(
-            state = authorization.state,
-            credential = credential,
-            oauthMetadata = oauthMetadata,
-            issuerMetadata = issuerMetadata,
+        pending = PendingIssuance(
+            context = ProvisioningContext(
+                state = authorization.state,
+                credential = credential,
+                oauthMetadata = oauthMetadata,
+                issuerMetadata = issuerMetadata,
+            ),
+            client = vci,
         )
         return authorization.url
     }
 
     @Throws(Throwable::class)
     suspend fun finishIssuance(callbackUrl: String): Int {
-        val context = pendingIssuance ?: error("No issuance is pending")
-        val vci = this.vci ?: error("No issuance client: start the issuance again")
+        val pending = this.pending ?: error("No issuance is pending")
+        val context = pending.context
+        val vci = pending.client
         val format = context.credential.supportedCredentialFormat
         val token = vci.oauth2Client.requestTokenWithAuthCode(
             oauthMetadata = context.oauthMetadata,
@@ -159,8 +168,7 @@ class BasicWallet(
             holder.storeAccepted(prepared).getOrThrow().storedEntry
                 ?: throw prepared.validation.report.firstRejection() ?: IllegalStateException("Credential rejected")
         }
-        pendingIssuance = null
-        this.vci = null
+        this.pending = null
         return holder.getCredentials()?.size ?: 0
     }
 
