@@ -6,12 +6,19 @@ import at.asitplus.signum.indispensable.cosef.CoseKey
 import at.asitplus.signum.indispensable.cosef.CoseKeyParams
 import at.asitplus.signum.indispensable.cosef.CoseKeyType
 import at.asitplus.signum.internals.toNSData
+import at.asitplus.wallet.lib.validation.HolderBindingPolicy
+import at.asitplus.wallet.lib.validation.RegistrationPolicy
+import at.asitplus.wallet.lib.validation.RequiredClaimsPolicy
+import at.asitplus.wallet.lib.validation.StatusPolicy
+import at.asitplus.wallet.lib.validation.TrustPolicy
 import kotlinx.serialization.SerializationException
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertSame
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.days
+import kotlin.time.Duration.Companion.minutes
 
 class SwiftBridgeTest {
     @Test
@@ -67,5 +74,21 @@ class SwiftBridgeTest {
             VckSerializer.joseDeserializeIssuerMetadata("{}".encodeToByteArray().toNSData())
         }
         assertSame(Clock.System, ClockAdapter.system)
+    }
+
+    @Test
+    fun validationBridgeTakesSeconds() {
+        fun policy(seconds: Double) = ValidationBridge.policy(
+            TrustPolicy.IntegrityOnly, StatusPolicy.Skip, seconds, true,
+            HolderBindingPolicy.None, RequiredClaimsPolicy.Skip, RegistrationPolicy.Require,
+        )
+        assertEquals(5.minutes, policy(300.0).timeLeeway)
+        assertFailsWith<IllegalArgumentException> { policy(-1.0) }
+        assertFailsWith<IllegalArgumentException> { policy(Double.NaN) }
+        ValidationBridge.relyingPartyValidator(
+            at.asitplus.wallet.lib.validation.RelyingPartyTrustAnchors(),
+            ValidationBridge.statusValidator(null),
+            365.days.inWholeSeconds.toDouble(),
+        )
     }
 }

@@ -196,4 +196,20 @@ struct vckiostestTests {
         }
     }
 
+    @Test func validationFactories() throws {
+        let policy = try ValidationPolicy.create(
+            trust: TrustPolicyIntegrityOnly.shared, status: StatusPolicySkip.shared,
+            timeLeeway: 300, requireTimeliness: true
+        )
+        #expect(policy.timeLeewayMilliseconds == 300_000)
+        #expect(policy.registration is RegistrationPolicyRequire)
+        #expect(throws: (any Error).self) {
+            try ValidationPolicy.create(
+                trust: TrustPolicyIntegrityOnly.shared, status: StatusPolicySkip.shared,
+                timeLeeway: -1, requireTimeliness: true
+            )
+        }
+        _ = CredentialValidator.create()
+        _ = try RelyingPartyValidator.create(trust: .create(), statusValidator: .create())
+    }
 }
