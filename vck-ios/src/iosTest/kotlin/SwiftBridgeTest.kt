@@ -9,6 +9,10 @@ import at.asitplus.signum.internals.toByteArray
 import at.asitplus.signum.internals.toNSData
 import at.asitplus.openid.TokenResponseParameters
 import at.asitplus.wallet.lib.HttpBody
+import at.asitplus.wallet.lib.ReceivedHttpResponse
+import at.asitplus.wallet.lib.openid.AuthenticationResponseResult
+import at.asitplus.wallet.lib.openid.OpenId4VpProtocolClient
+import kotlinx.coroutines.runBlocking
 import at.asitplus.wallet.lib.agent.EphemeralKeyWithoutCert
 import at.asitplus.wallet.lib.agent.SubjectCredentialStore
 import at.asitplus.wallet.lib.data.VerifiableCredentialSdJwt
@@ -172,5 +176,23 @@ class SwiftBridgeTest {
         assertEquals(context, VckSerializer.joseDeserializeProvisioningContext(
             VckSerializer.joseSerializeProvisioningContext(context)
         ))
+    }
+
+    @Test
+    fun exchangesRunOverTransport() = runBlocking {
+        val sent = mutableListOf<SwiftHttpRequest>()
+        val transport = object : HttpTransport {
+            override suspend fun send(request: SwiftHttpRequest): ReceivedHttpResponse {
+                sent += request
+                return HttpExchangeBridge.response(200, emptyMap(), """{"redirect_uri":"https://verifier.example/done"}""")
+            }
+        }
+        val client = OpenId4VpProtocolClient(OpenId4VpHolderBuilder().build())
+        val redirect = client.sendAuthorizationResponse(
+            AuthenticationResponseResult.Post("https://verifier.example/response", mapOf("vp_token" to "token"))
+        ).execute(transport)
+        assertEquals("https://verifier.example/done", redirect)
+        assertEquals(listOf("https://verifier.example/response"), sent.map { it.url })
+        assertEquals("POST", sent.single().method)
     }
 }

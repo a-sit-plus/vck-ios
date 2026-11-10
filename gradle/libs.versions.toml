@@ -8,7 +8,6 @@ kmmresult = "1.9.3"
 napier = "2.7.1"
 signum = "3.26.0"
 supreme = "0.16.0"
-ktor = "3.6.0"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
@@ -27,7 +26,6 @@ credential-eupid-sdjwt = { module = "at.asitplus.wallet:eupidcredential-sdjwt", 
 credential-mdl = { group = "at.asitplus.wallet", name = "mobiledrivinglicence", version.ref = "mdl" }
 kmmresult = { group = "at.asitplus", name = "kmmresult", version.ref = "kmmresult" }
 napier = { group = "io.github.aakira", name = "napier", version.ref = "napier" }
-ktor-client-darwin = { module = "io.ktor:ktor-client-darwin", version.ref = "ktor" }
 
 
 [plugins]

@@ -130,7 +130,7 @@ final class WalletModel: NSObject, ObservableObject, ASWebAuthenticationPresenta
         let pointer = Unmanaged.passUnretained(key).toOpaque()
         let keyMaterial = try kotlinValue(KeyMaterialAdapter.shared.fromSecKey(privateKey: pointer))!
         let store = SubjectCredentialStoreAdapter(SwiftSubjectCredentialStore())
-        let created = BasicWallet(keyMaterial: keyMaterial, subjectCredentialStore: store)
+        let created = BasicWallet(keyMaterial: keyMaterial, subjectCredentialStore: store, transport: URLSessionTransport())
         //use a builder wrapper
         let builder = OpenId4VpHolderBuilder(
             keyMaterial: keyMaterial,

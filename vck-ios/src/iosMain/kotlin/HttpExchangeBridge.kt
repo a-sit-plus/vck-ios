@@ -1,4 +1,6 @@
 import at.asitplus.signum.internals.toNSData
+import at.asitplus.wallet.lib.HttpExchange
+import at.asitplus.wallet.lib.HttpStep
 import at.asitplus.wallet.lib.ProtocolRequest
 import at.asitplus.wallet.lib.ReceivedHttpResponse
 import io.ktor.http.Headers
@@ -14,6 +16,24 @@ class SwiftHttpRequest internal constructor(
     val contentType: String?,
     val body: NSData?,
 )
+
+/**
+ * Sends one request and returns the response without following redirects, which VC-K treats as errors.
+ * Implemented in Swift by `URLSessionTransport`.
+ */
+interface HttpTransport {
+    @Throws(Throwable::class)
+    suspend fun send(request: SwiftHttpRequest): ReceivedHttpResponse
+}
+
+/** Runs this exchange from Kotlin, sending its requests with [transport]. */
+internal suspend fun <T> HttpExchange<T>.execute(transport: HttpTransport): T {
+    var step = next(null).getOrThrow()
+    while (step is HttpStep.Send) {
+        step = next(transport.send(HttpExchangeBridge.request(step.request))).getOrThrow()
+    }
+    return (step as HttpStep.Done).value
+}
 
 /** Converts VC-K's transport-agnostic HTTP types, whose ktor types Swift cannot easily build or read. */
 object HttpExchangeBridge {

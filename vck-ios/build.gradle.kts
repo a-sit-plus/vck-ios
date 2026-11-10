@@ -53,10 +53,6 @@ kotlin {
             walletDependencies.forEach {api(it)}
         }
 
-        iosMain.dependencies {
-            implementation(libs.ktor.client.darwin)
-        }
-
         commonTest.dependencies {
             implementation(libs.kotlin.test)
         }
