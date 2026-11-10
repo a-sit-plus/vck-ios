@@ -212,4 +212,64 @@ struct vckiostestTests {
         _ = CredentialValidator.create()
         _ = try RelyingPartyValidator.create(trust: .create(), statusValidator: .create())
     }
+
+    @Test func httpExchangeRunner() async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [StubURLProtocol.self]
+        let session = URLSession(configuration: configuration)
+        let client = OpenId4VpProtocolClient(openId4VpHolder: OpenId4VpHolderBuilder().build())
+        let post = AuthenticationResponseResult.Post(
+            url: "https://verifier.example/response", params: ["vp_token": "token"]
+        )
+
+        StubURLProtocol.response = (200, Data(#"{"redirect_uri":"https://verifier.example/done"}"#.utf8))
+        let redirect = try await client.sendAuthorizationResponse(response: post)
+            .run(as: String?.self, session: session)
+        #expect(redirect == "https://verifier.example/done")
+        let request = try #require(StubURLProtocol.request)
+        #expect(request.url?.absoluteString == "https://verifier.example/response")
+        #expect(request.httpMethod == "POST")
+        #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/x-www-form-urlencoded")
+        #expect(StubURLProtocol.body.map { String(decoding: $0, as: UTF8.self) } == "vp_token=token")
+
+        StubURLProtocol.response = (302, Data())
+        await #expect(throws: (any Error).self) {
+            try await client.sendAuthorizationResponse(response: post).run(as: String?.self, session: session)
+        }
+    }
+}
+
+/// Answers every request with `response`; only used by `httpExchangeRunner`, which runs its cases in sequence.
+final class StubURLProtocol: URLProtocol {
+    nonisolated(unsafe) static var response: (status: Int, body: Data) = (200, Data())
+    nonisolated(unsafe) static var request: URLRequest?
+    nonisolated(unsafe) static var body: Data?
+
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+    override func startLoading() {
+        Self.request = request
+        Self.body = request.httpBodyStream.map { stream in
+            stream.open()
+            defer { stream.close() }
+            var data = Data()
+            var buffer = [UInt8](repeating: 0, count: 1024)
+            while stream.hasBytesAvailable {
+                let count = stream.read(&buffer, maxLength: buffer.count)
+                if count <= 0 { break }
+                data.append(buffer, count: count)
+            }
+            return data
+        }
+        let response = HTTPURLResponse(
+            url: request.url!, statusCode: Self.response.status, httpVersion: "HTTP/1.1",
+            headerFields: ["Content-Type": "application/json"]
+        )!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: Self.response.body)
+        client?.urlProtocolDidFinishLoading(self)
+    }
+
+    override func stopLoading() {}
 }

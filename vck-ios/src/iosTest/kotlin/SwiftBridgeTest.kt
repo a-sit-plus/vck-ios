@@ -5,7 +5,15 @@ import at.asitplus.signum.indispensable.cosef.CoseEllipticCurve
 import at.asitplus.signum.indispensable.cosef.CoseKey
 import at.asitplus.signum.indispensable.cosef.CoseKeyParams
 import at.asitplus.signum.indispensable.cosef.CoseKeyType
+import at.asitplus.signum.internals.toByteArray
 import at.asitplus.signum.internals.toNSData
+import at.asitplus.wallet.lib.HttpBody
+import at.asitplus.wallet.lib.PreparedHttpRequest
+import at.asitplus.wallet.lib.ProtocolRequest
+import io.ktor.http.ContentType
+import io.ktor.http.HttpMethod
+import io.ktor.http.HttpStatusCode
+import io.ktor.http.headersOf
 import at.asitplus.wallet.lib.validation.HolderBindingPolicy
 import at.asitplus.wallet.lib.validation.RegistrationPolicy
 import at.asitplus.wallet.lib.validation.RequiredClaimsPolicy
@@ -90,5 +98,29 @@ class SwiftBridgeTest {
             ValidationBridge.statusValidator(null),
             365.days.inWholeSeconds.toDouble(),
         )
+    }
+
+    @Test
+    fun httpExchangeBridgeFlattensRequests() {
+        val flat = HttpExchangeBridge.request(
+            ProtocolRequest.RequestObject(
+                PreparedHttpRequest(
+                    url = "https://rp.example/request",
+                    method = HttpMethod.Post,
+                    headers = headersOf("Accept" to listOf("a", "b")),
+                    body = HttpBody(ContentType.Application.FormUrlEncoded, "x=1"),
+                )
+            )
+        )
+        assertEquals("https://rp.example/request", flat.url)
+        assertEquals("POST", flat.method)
+        assertEquals(mapOf("Accept" to "a, b"), flat.headers)
+        assertEquals("application/x-www-form-urlencoded", flat.contentType)
+        assertEquals("x=1", flat.body?.toByteArray()?.decodeToString())
+
+        val response = HttpExchangeBridge.response(201, mapOf("Location" to "https://rp.example/next"), "body")
+        assertEquals(HttpStatusCode.Created, response.status)
+        assertEquals("https://rp.example/next", response.headers["Location"])
+        assertEquals("body", response.body)
     }
 }
