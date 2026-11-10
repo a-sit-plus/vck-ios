@@ -13,23 +13,14 @@ import at.asitplus.wallet.lib.agent.SubjectCredentialStore
 import at.asitplus.wallet.lib.ktor.openid.OpenId4VciKtorClient
 import at.asitplus.wallet.lib.ktor.openid.ProvisioningContext
 import at.asitplus.wallet.lib.oauth2.OAuth2Client
-import at.asitplus.openid.encodeToParameters
 import at.asitplus.wallet.lib.oidvci.JwtProofCreator
 import at.asitplus.wallet.lib.oidvci.OpenId4VciClient
 import at.asitplus.wallet.lib.validation.StatusPolicy
 import at.asitplus.wallet.lib.validation.TrustPolicy
 import at.asitplus.wallet.lib.validation.ValidationPolicy
 import at.asitplus.wallet.lib.validation.firstRejection
-import at.asitplus.wallet.lib.RemoteResourceRetrieverInput
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.darwin.Darwin
-import io.ktor.client.request.forms.submitForm
-import io.ktor.client.request.get
-import io.ktor.client.request.headers
-import io.ktor.client.statement.bodyAsText
-import io.ktor.http.HttpMethod
-import io.ktor.http.URLBuilder
-import io.ktor.http.parameters
 import platform.Security.SecKeyRef
 import kotlin.time.Duration.Companion.minutes
 
@@ -59,18 +50,6 @@ class BasicWallet(
 
     val holder = HolderAgent(keyMaterial, subjectCredentialStore)
     private val http = HttpClient(Darwin)
-    val remoteResourceRetriever: suspend (RemoteResourceRetrieverInput) -> String? = { input ->
-        val response = if (input.method == HttpMethod.Post) {
-            http.submitForm(input.url, parameters {
-                input.requestObjectParameters?.encodeToParameters()?.forEach { append(it.key, it.value) }
-            }) { headers { input.headers.forEach { append(it.key, it.value) } } }
-        } else {
-            http.get(URLBuilder(input.url).apply {
-                input.requestObjectParameters?.encodeToParameters()?.forEach { parameters.append(it.key, it.value) }
-            }.build()) { headers { input.headers.forEach { append(it.key, it.value) } } }
-        }
-        response.bodyAsText()
-    }
     private val issuance = OpenId4VciKtorClient(
         httpClient = http,
         oauth2Client = OAuth2Client(
