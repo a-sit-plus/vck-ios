@@ -1,3 +1,10 @@
+import at.asitplus.dcapi.request.IsoMdocRequest
+import at.asitplus.iso.EncryptionInfo
+import at.asitplus.iso.EncryptionParameters
+import at.asitplus.signum.indispensable.cosef.CoseEllipticCurve
+import at.asitplus.signum.indispensable.cosef.CoseKey
+import at.asitplus.signum.indispensable.cosef.CoseKeyParams
+import at.asitplus.signum.indispensable.cosef.CoseKeyType
 import at.asitplus.signum.internals.toNSData
 import kotlinx.serialization.SerializationException
 import kotlin.test.Test
@@ -7,6 +14,38 @@ import kotlin.test.assertSame
 import kotlin.time.Clock
 
 class SwiftBridgeTest {
+    @Test
+    fun dcApiSerializationRoundTrips() {
+        val summary = VckSerializer.joseDeserializeIosDcApiMdocPreRequestSummary(
+            """{"documentRequests":[{"docType":"org.iso.18013.5.1.mDL","namespaces":{"org.iso.18013.5.1":{"family_name":false}}}]}"""
+                .encodeToByteArray().toNSData()
+        )
+        assertEquals(summary, VckSerializer.joseDeserializeIosDcApiMdocPreRequestSummary(
+            VckSerializer.joseSerializeIosDcApiMdocPreRequestSummary(summary)
+        ))
+        val request = IsoMdocRequest(
+            deviceRequest = summary.toDeviceRequest(),
+            encryptionInfo = EncryptionInfo(
+                type = "dcapi",
+                encryptionParameters = EncryptionParameters(
+                    recipientPublicKey = CoseKey(
+                        type = CoseKeyType.EC2,
+                        keyParams = CoseKeyParams.EcYBoolParams(curve = CoseEllipticCurve.P256)
+                    )
+                )
+            )
+        )
+        assertEquals(request, VckSerializer.joseDeserializeIsoMdocRequest(
+            VckSerializer.joseSerializeIsoMdocRequest(request)
+        ))
+        assertFailsWith<SerializationException> {
+            VckSerializer.joseDeserializeIsoMdocRequest("{}".encodeToByteArray().toNSData())
+        }
+        assertFailsWith<SerializationException> {
+            VckSerializer.joseDeserializeIosDcApiMdocPreRequestSummary("{}".encodeToByteArray().toNSData())
+        }
+    }
+
     @Test
     fun issuerMetadataRoundTripAndSystemClock() {
         val json = """{
