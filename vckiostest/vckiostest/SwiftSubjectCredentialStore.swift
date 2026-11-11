@@ -26,48 +26,7 @@ class SwiftSubjectCredentialStore: SwiftCredentialStore {
         return filtered
     }
 
-    func storeCredential(issuerSigned: IssuerSigned, scheme: any IsoMdocCredentialScheme, renewalInfo: CredentialRenewalInfo? = nil, issuer: X509Certificate? = nil) async throws
-        -> any SubjectCredentialStoreStoreEntry {
-        store(SubjectCredentialStoreStoreEntryIso(
-            issuerSigned: issuerSigned,
-            renewalInfo: renewalInfo,
-            issuer: issuer,
-            schemeIdentifier: try requiredIdentifier(scheme.isoDocType)
-        ))
-    }
-
-    func storeCredential(vc: VerifiableCredentialJws, vcSerialized: String, scheme: any VcJwtCredentialScheme, renewalInfo: CredentialRenewalInfo? = nil, issuer: X509Certificate? = nil) async throws
-        -> any SubjectCredentialStoreStoreEntry {
-        store(SubjectCredentialStoreStoreEntryVc(
-            vcSerialized: vcSerialized,
-            vc: vc,
-            renewalInfo: renewalInfo,
-            issuer: issuer,
-            schemeIdentifier: try requiredIdentifier(scheme.vcType)
-        ))
-    }
-
-    func storeCredential(vc: VerifiableCredentialSdJwt, vcSerialized: String, disclosures: [String: Any], scheme: any SdJwtCredentialScheme, renewalInfo: CredentialRenewalInfo? = nil, issuer: X509Certificate? = nil) async throws
-        -> any SubjectCredentialStoreStoreEntry {
-        store(SubjectCredentialStoreStoreEntrySdJwt(
-            vcSerialized: vcSerialized,
-            sdJwt: vc,
-            disclosures: disclosures,
-            renewalInfo: renewalInfo,
-            issuer: issuer,
-            schemeIdentifier: try requiredIdentifier(scheme.sdJwtType)
-        ))
-    }
-
-    private func requiredIdentifier(_ identifier: String?) throws -> String {
-        guard let identifier else {
-            throw NSError(domain: "SwiftSubjectCredentialStore", code: 1,
-                          userInfo: [NSLocalizedDescriptionKey: "Credential scheme is missing its format identifier"])
-        }
-        return identifier
-    }
-
-    private func store(_ entry: any SubjectCredentialStoreStoreEntry) -> any SubjectCredentialStoreStoreEntry {
+    func storeCredential(entry: any SubjectCredentialStoreStoreEntry) async throws -> any SubjectCredentialStoreStoreEntry {
         credentials[UUID()] = entry
         return entry
     }

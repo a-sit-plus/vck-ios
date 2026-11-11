@@ -55,6 +55,7 @@ final class WalletModel: NSObject, ObservableObject, ASWebAuthenticationPresenta
 
     private var wallet: BasicWallet?
     private var openId4VpHolder: OpenId4VpHolder?
+    private var openId4VpClient: OpenId4VpProtocolClient?
     private var presentationState: AuthorizationResponsePreparationState?
     private var browserSession: ASWebAuthenticationSession?
 
@@ -89,8 +90,8 @@ final class WalletModel: NSObject, ObservableObject, ASWebAuthenticationPresenta
             self.presentationState = nil
             self.hasPreparedPresentation = false
             _ = try self.walletInstance()
-            let state = try await kotlinValue(self.openId4VpHolder!
-                .startAuthorizationResponsePreparation(input: request))!
+            let state = try await self.openId4VpClient!.prepareAuthorizationResponse(input: request)
+                .run(as: AuthorizationResponsePreparationState.self)
             let matches = try await kotlinValue(self.openId4VpHolder!
                 .getMatchingCredentials(preparationState: state))!
             self.presentationState = state
@@ -129,15 +130,16 @@ final class WalletModel: NSObject, ObservableObject, ASWebAuthenticationPresenta
         let pointer = Unmanaged.passUnretained(key).toOpaque()
         let keyMaterial = try kotlinValue(KeyMaterialAdapter.shared.fromSecKey(privateKey: pointer))!
         let store = SubjectCredentialStoreAdapter(SwiftSubjectCredentialStore())
-        let created = BasicWallet(keyMaterial: keyMaterial, subjectCredentialStore: store)
+        let created = BasicWallet(keyMaterial: keyMaterial, subjectCredentialStore: store, transport: URLSessionTransport())
         //use a builder wrapper
         let builder = OpenId4VpHolderBuilder(
             keyMaterial: keyMaterial,
             subjectCredentialStore: store
         )
         builder.holder = created.holder
-        builder.remoteResourceRetriever = created.remoteResourceRetriever
-        openId4VpHolder = builder.build()
+        let holder = builder.build()
+        openId4VpHolder = holder
+        openId4VpClient = OpenId4VpProtocolClient(openId4VpHolder: holder)
         wallet = created
         append("Loaded Secure Enclave key and built OpenId4VpHolder from Swift.")
         return created
@@ -148,19 +150,7 @@ final class WalletModel: NSObject, ObservableObject, ASWebAuthenticationPresenta
         case .redirect(let response):
             return response.url
         case .post(let response):
-            guard let url = URL(string: response.url) else { throw URLError(.badURL) }
-            var components = URLComponents()
-            components.queryItems = response.params.map { URLQueryItem(name: $0.key, value: $0.value) }
-            var request = URLRequest(url: url)
-            request.httpMethod = "POST"
-            request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
-            request.httpBody = components.percentEncodedQuery?.data(using: .utf8)
-            let (data, urlResponse) = try await URLSession.shared.data(for: request)
-            guard let http = urlResponse as? HTTPURLResponse, (200...399).contains(http.statusCode) else {
-                throw URLError(.badServerResponse)
-            }
-            if let location = http.value(forHTTPHeaderField: "Location") { return location }
-            return try? JSONDecoder().decode(PresentationSuccess.self, from: data).redirectUri
+            return try await openId4VpClient!.sendAuthorizationResponse(response: response).run(as: String?.self)
         case .dcApi:
             throw NSError(domain: "vckiostest", code: 1,
                           userInfo: [NSLocalizedDescriptionKey: "DC API requests are not supported by this demo"])
@@ -197,14 +187,6 @@ final class WalletModel: NSObject, ObservableObject, ASWebAuthenticationPresenta
     private func append(_ message: String) {
         log += "\n\(message)"
         print(message)
-    }
-}
-
-private struct PresentationSuccess: Decodable {
-    let redirectUri: String
-
-    enum CodingKeys: String, CodingKey {
-        case redirectUri = "redirect_uri"
     }
 }
 

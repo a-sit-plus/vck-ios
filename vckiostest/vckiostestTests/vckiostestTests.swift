@@ -83,19 +83,19 @@ struct vckiostestTests {
         #expect(throws: (any Error).self) { try failure.swiftResult(as: String.self).get() }
     }
 
-    @Test func walletServiceDefaults() throws {
-        let firstKey = WalletServiceDefaults.keyMaterial
-        let secondKey = WalletServiceDefaults.keyMaterial
+    @Test func openId4VciClientDefaults() throws {
+        let firstKey = OpenId4VciClientDefaults.keyMaterial
+        let secondKey = OpenId4VciClientDefaults.keyMaterial
         #expect(firstKey !== secondKey)
-        #expect(WalletServiceDefaults.encryptionService !== WalletServiceDefaults.encryptionService)
-        let wallet = WalletServiceAdapter()
-        #expect(wallet.service.clientId == "https://wallet.a-sit.at/app")
+        #expect(OpenId4VciClientDefaults.encryptionService !== OpenId4VciClientDefaults.encryptionService)
+        let wallet = OpenId4VciClientAdapter()
+        #expect(wallet.clientId == "https://wallet.a-sit.at/app")
         let details = try #require(wallet.buildAuthorizationDetails(credentialConfigurationId: "pid").first)
         #expect(details.credentialConfigurationId == "pid")
         #expect(details.locations == nil)
 
-        let custom = WalletServiceAdapter(clientId: "https://custom.example/wallet")
-        #expect(custom.service.clientId == "https://custom.example/wallet")
+        let custom = OpenId4VciClientAdapter(clientId: "https://custom.example/wallet")
+        #expect(custom.clientId == "https://custom.example/wallet")
         let servers: Set<String> = ["https://auth.example"]
         let multiple = custom.buildAuthorizationDetails(
             credentialConfigurationIds: ["pid", "mdl"], authorizationServers: servers
@@ -112,10 +112,12 @@ struct vckiostestTests {
             data.base64EncodedString().replacingOccurrences(of: "+", with: "-")
                 .replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: "=", with: "")
         }
-        let keyMaterial = WalletServiceDefaults.keyMaterial
+        let keyMaterial = OpenId4VciClientDefaults.keyMaterial
         let header = base64url(Data(#"{"alg":"ES256"}"#.utf8))
+        let jwk = try VckSerializer.shared.joseSerializeJsonWebKey(keyMaterial.jsonWebKey)
+        #expect(try VckSerializer.shared.joseDeserializeJsonWebKey(jwk) == keyMaterial.jsonWebKey)
         let payload = base64url(Data("""
-            {"iat":0,"nonce":"nonce","attested_keys":[\(keyMaterial.jsonWebKey.serialize())]}
+            {"iat":0,"nonce":"nonce","attested_keys":[\(String(decoding: jwk, as: UTF8.self))]}
             """.utf8))
         // Parsing fixture only: signature verification belongs to the attestation verifier.
         let signature = base64url(Data(repeating: 1, count: 64))
@@ -136,29 +138,29 @@ struct vckiostestTests {
              "credential_configurations_supported":{"pid":{"format":"dc+sd-jwt","vct":"urn:example:pid",
                 "scope":"pid","proof_types_supported":{"attestation":{"proof_signing_alg_values_supported":["ES256"]}}}}}
             """#.utf8))
-        let format = try #require(metadata.supportedCredentialConfigurations?["pid"])
+        let format = try #require(metadata.supportedCredentialConfigurations["pid"])
         let token = TokenResponseParameters(
             accessToken: "token", refreshToken: nil, tokenType: "Bearer", expires: nil,
             scope: "pid", authorizationPending: nil, interval: nil, authorizationDetails: nil, credentialId: nil
         )
         var calls = 0
-        let callback = SwiftSuspendFunction1 { (input: WalletService.KeyAttestationInput) in
+        let callback = SwiftSuspendFunction1 { (input: OpenId4VciClient.KeyAttestationInput) in
             #expect(input.credentialIssuer == "https://issuer.example")
             #expect(input.clientNonce == "nonce")
             calls += 1
             return KmmResult(value: try VckSerializer.shared.joseDeserializeKeyAttestationJwt(proof))
         }
-        let wallet = WalletServiceAdapter(keyMaterial: keyMaterial, loadKeyAttestation: callback)
+        let wallet = OpenId4VciClientAdapter(keyMaterial: keyMaterial, loadKeyAttestation: callback)
         let requests = try await wallet.createCredential(
             tokenResponse: token, metadata: metadata, credentialFormat: format, clientNonce: "nonce"
         )
         #expect(calls == 1)
-        let request = try #require(requests.first as? WalletServiceCredentialRequestPlain)
+        let request = try #require(requests.first as? OpenId4VciClientCredentialRequestPlain)
         #expect(request.request.proofs?.attestation?.first?.description() == proof)
-        let invalidCallback = SwiftSuspendFunction1 { (_: WalletService.KeyAttestationInput) in
+        let invalidCallback = SwiftSuspendFunction1 { (_: OpenId4VciClient.KeyAttestationInput) in
             KmmResult(value: try VckSerializer.shared.joseDeserializeKeyAttestationJwt("invalid"))
         }
-        let invalidWallet = WalletServiceAdapter(loadKeyAttestation: invalidCallback)
+        let invalidWallet = OpenId4VciClientAdapter(loadKeyAttestation: invalidCallback)
         await #expect(throws: (any Error).self) {
             try await invalidWallet.createCredential(tokenResponse: token, metadata: metadata, credentialFormat: format)
         }
@@ -171,22 +173,105 @@ struct vckiostestTests {
                 "pid":{"format":"dc+sd-jwt","vct":"urn:example:pid","scope":"pid"},
                 "address":{"format":"dc+sd-jwt","vct":"urn:example:address","scope":"address"}}}
             """#.utf8))
-        let format = try #require(metadata.supportedCredentialConfigurations?["pid"])
+        let format = try #require(metadata.supportedCredentialConfigurations["pid"])
         let token = TokenResponseParameters(
             accessToken: "token", refreshToken: nil, tokenType: "Bearer", expires: nil,
             scope: nil, authorizationPending: nil, interval: nil, authorizationDetails: nil, credentialId: nil
         )
-        let wallet = WalletServiceAdapter()
-        let requests: [WalletServiceCredentialRequest] = try await wallet.createCredential(
+        let wallet = OpenId4VciClientAdapter()
+        let requests: [OpenId4VciClientCredentialRequest] = try await wallet.createCredential(
             tokenResponse: token, metadata: metadata, credentialFormat: format,
             previouslyRequestedScope: "pid address"
         )
-        #expect(Set(requests.compactMap {
-            ($0 as? WalletServiceCredentialRequestPlain)?.request.credentialConfigurationId
-        }) == ["pid", "address"])
+        // Since VC-K 9, only the selected format is requested, even if the scope grants more.
+        #expect(requests.compactMap {
+            ($0 as? OpenId4VciClientCredentialRequestPlain)?.request.credentialConfigurationId
+        } == ["pid"])
+        await #expect(throws: (any Error).self) {
+            try await wallet.createCredential(
+                tokenResponse: token, metadata: metadata, credentialFormat: format,
+                previouslyRequestedScope: "address"
+            )
+        }
         await #expect(throws: (any Error).self) {
             try await wallet.createCredential(tokenResponse: token, metadata: metadata, credentialFormat: format)
         }
     }
 
+    @Test func validationFactories() throws {
+        let policy = try ValidationPolicy.create(
+            trust: TrustPolicyIntegrityOnly.shared, status: StatusPolicySkip.shared,
+            timeLeeway: 300, requireTimeliness: true
+        )
+        #expect(policy.timeLeewayMilliseconds == 300_000)
+        #expect(policy.registration is RegistrationPolicyRequire)
+        #expect(throws: (any Error).self) {
+            try ValidationPolicy.create(
+                trust: TrustPolicyIntegrityOnly.shared, status: StatusPolicySkip.shared,
+                timeLeeway: -1, requireTimeliness: true
+            )
+        }
+        _ = CredentialValidator.create()
+        _ = try RelyingPartyValidator.create(trust: .create(), statusValidator: .create())
+    }
+
+    @Test func httpExchangeRunner() async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [StubURLProtocol.self]
+        let session = URLSession(configuration: configuration)
+        let client = OpenId4VpProtocolClient(openId4VpHolder: OpenId4VpHolderBuilder().build())
+        let post = AuthenticationResponseResult.Post(
+            url: "https://verifier.example/response", params: ["vp_token": "token"]
+        )
+
+        StubURLProtocol.response = (200, Data(#"{"redirect_uri":"https://verifier.example/done"}"#.utf8))
+        let redirect = try await client.sendAuthorizationResponse(response: post)
+            .run(as: String?.self, session: session)
+        #expect(redirect == "https://verifier.example/done")
+        let request = try #require(StubURLProtocol.request)
+        #expect(request.url?.absoluteString == "https://verifier.example/response")
+        #expect(request.httpMethod == "POST")
+        #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/x-www-form-urlencoded")
+        #expect(StubURLProtocol.body.map { String(decoding: $0, as: UTF8.self) } == "vp_token=token")
+
+        StubURLProtocol.response = (302, Data())
+        await #expect(throws: (any Error).self) {
+            try await client.sendAuthorizationResponse(response: post).run(as: String?.self, session: session)
+        }
+    }
+}
+
+/// Answers every request with `response`; only used by `httpExchangeRunner`, which runs its cases in sequence.
+final class StubURLProtocol: URLProtocol {
+    nonisolated(unsafe) static var response: (status: Int, body: Data) = (200, Data())
+    nonisolated(unsafe) static var request: URLRequest?
+    nonisolated(unsafe) static var body: Data?
+
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+    override func startLoading() {
+        Self.request = request
+        Self.body = request.httpBodyStream.map { stream in
+            stream.open()
+            defer { stream.close() }
+            var data = Data()
+            var buffer = [UInt8](repeating: 0, count: 1024)
+            while stream.hasBytesAvailable {
+                let count = stream.read(&buffer, maxLength: buffer.count)
+                if count <= 0 { break }
+                data.append(buffer, count: count)
+            }
+            return data
+        }
+        let response = HTTPURLResponse(
+            url: request.url!, statusCode: Self.response.status, httpVersion: "HTTP/1.1",
+            headerFields: ["Content-Type": "application/json"]
+        )!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: Self.response.body)
+        client?.urlProtocolDidFinishLoading(self)
+    }
+
+    override func stopLoading() {}
 }

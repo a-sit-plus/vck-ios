@@ -3,12 +3,11 @@ kotlin = "2.4.10"
 
 mdl = "1.4.0"
 eupid-sdjwt = "1.4.0"
-vck = "8.0.0"
+vck = "9.0.0"
 kmmresult = "1.9.3"
 napier = "2.7.1"
 signum = "3.26.0"
 supreme = "0.16.0"
-ktor = "3.6.0"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
@@ -17,7 +16,6 @@ vck = { group = "at.asitplus.wallet", name = "vck", version.ref = "vck" }
 vck-openid = { group = "at.asitplus.wallet", name = "vck-openid", version.ref = "vck" }
 vck-openid-ktor = { group = "at.asitplus.wallet", name = "vck-openid-ktor", version.ref = "vck" }
 vck-data-openid = { group = "at.asitplus.wallet", name = "openid-data-classes", version.ref = "vck" }
-vck-data-dif = { group = "at.asitplus.wallet", name = "dif-data-classes", version.ref = "vck" }
 vck-data-csc = { group = "at.asitplus.wallet", name = "csc-data-classes", version.ref = "vck" }
 signum-indispensable = { group = "at.asitplus.signum", name = "indispensable", version.ref = "signum" }
 signum-indispensable-josef = { group = "at.asitplus.signum", name = "indispensable-josef", version.ref = "signum" }
@@ -28,7 +26,6 @@ credential-eupid-sdjwt = { module = "at.asitplus.wallet:eupidcredential-sdjwt", 
 credential-mdl = { group = "at.asitplus.wallet", name = "mobiledrivinglicence", version.ref = "mdl" }
 kmmresult = { group = "at.asitplus", name = "kmmresult", version.ref = "kmmresult" }
 napier = { group = "io.github.aakira", name = "napier", version.ref = "napier" }
-ktor-client-darwin = { module = "io.ktor:ktor-client-darwin", version.ref = "ktor" }
 
 
 [plugins]

@@ -21,7 +21,6 @@ val xcf = XCFramework(xcframeworkName)
 val walletDependencies= listOf(
     libs.vck,
 
-    libs.vck.data.dif,
     libs.vck.data.openid,
     libs.vck.data.csc,
     libs.vck.openid,
@@ -52,10 +51,6 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             walletDependencies.forEach {api(it)}
-        }
-
-        iosMain.dependencies {
-            implementation(libs.ktor.client.darwin)
         }
 
         commonTest.dependencies {
