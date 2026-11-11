@@ -8,6 +8,7 @@ kmmresult = "1.9.3"
 napier = "2.7.1"
 signum = "3.26.0"
 supreme = "0.16.0"
+warden = "1.2.0"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
@@ -20,6 +21,7 @@ vck-data-csc = { group = "at.asitplus.wallet", name = "csc-data-classes", versio
 signum-indispensable = { group = "at.asitplus.signum", name = "indispensable", version.ref = "signum" }
 signum-indispensable-josef = { group = "at.asitplus.signum", name = "indispensable-josef", version.ref = "signum" }
 signum-indispensable-cosef = { group = "at.asitplus.signum", name = "indispensable-cosef", version.ref = "signum" }
+warden-supreme-client = { group = "at.asitplus.warden", name = "supreme-client", version.ref = "warden" }
 signum-supreme = { group = "at.asitplus.signum", name = "supreme", version.ref = "supreme" }
 
 credential-eupid-sdjwt = { module = "at.asitplus.wallet:eupidcredential-sdjwt", version.ref = "eupid-sdjwt" }
@@ -30,3 +32,4 @@ napier = { group = "io.github.aakira", name = "napier", version.ref = "napier" }
 
 [plugins]
 kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+kotlinSerialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }

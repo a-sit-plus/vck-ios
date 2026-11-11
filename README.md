@@ -3,7 +3,9 @@
 ./vckiostest is a test app. to run:
 * Build an xcframework from this root: `./gradlew assembleVck-iosDebugXCFramework`
 * The debug framework is _LINKED_ from the vckiostest XCode app, no no copying
-* Build and run iOS app on simulator or physical device
+* Build and run iOS app on simulator or physical device (issuance needs a physical device: `BasicWallet` gets a
+  Wallet Instance Attestation and key attestations from `wallet-provider.a-sit.plus` via App Attest, as Valera
+  does, so the wallet provider must accept the app's App ID)
 * Enjoy
 
 The Swift adapter is bundled into the framework by SKIE; external default-argument

@@ -6,6 +6,7 @@ import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
+    alias(libs.plugins.kotlinSerialization)
     id("co.touchlab.skie") version "0.10.14"
 }
 
@@ -51,6 +52,11 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             walletDependencies.forEach {api(it)}
+        }
+
+        iosMain.dependencies {
+            // Wallet provider attestation (WIA), as in Valera; not exported to Swift.
+            implementation(libs.warden.supreme.client)
         }
 
         commonTest.dependencies {

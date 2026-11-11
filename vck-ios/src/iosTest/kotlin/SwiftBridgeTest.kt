@@ -13,6 +13,16 @@ import at.asitplus.wallet.lib.ReceivedHttpResponse
 import at.asitplus.wallet.lib.openid.AuthenticationResponseResult
 import at.asitplus.wallet.lib.openid.OpenId4VpProtocolClient
 import kotlinx.coroutines.runBlocking
+import at.asitplus.openid.KeyAttestationRequired
+import at.asitplus.signum.indispensable.josef.JsonWebToken
+import at.asitplus.signum.indispensable.josef.JwsCompactTyped
+import at.asitplus.signum.indispensable.josef.io.joseCompliantSerializer
+import at.asitplus.signum.indispensable.josef.toJsonWebKey
+import at.asitplus.wallet.lib.oidvci.OpenId4VciClient
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonPrimitive
+import kotlin.io.encoding.Base64
 import at.asitplus.wallet.lib.agent.EphemeralKeyWithoutCert
 import at.asitplus.wallet.lib.agent.SubjectCredentialStore
 import at.asitplus.wallet.lib.data.VerifiableCredentialSdJwt
@@ -194,5 +204,53 @@ class SwiftBridgeTest {
         assertEquals("https://verifier.example/done", redirect)
         assertEquals(listOf("https://verifier.example/response"), sent.map { it.url })
         assertEquals("POST", sent.single().method)
+    }
+
+    @Test
+    @Suppress("DEPRECATION")
+    fun walletProviderKeyAttestationRequest() = runBlocking {
+        fun jws(payload: String) = listOf("""{"alg":"ES256"}""", payload).joinToString(".") {
+            Base64.UrlSafe.withPadding(Base64.PaddingOption.ABSENT).encode(it.encodeToByteArray())
+        } + "." + Base64.UrlSafe.withPadding(Base64.PaddingOption.ABSENT).encode(ByteArray(64) { 1 })
+        val holderKey = EphemeralKeyWithoutCert()
+        val holderJwk = joseCompliantSerializer.encodeToString(holderKey.publicKey.toJsonWebKey())
+        val wuaJws = jws("""{"iat":0,"attested_keys":[$holderJwk]}""")
+        val sent = mutableListOf<SwiftHttpRequest>()
+        val transport = object : HttpTransport {
+            override suspend fun send(request: SwiftHttpRequest): ReceivedHttpResponse {
+                sent += request
+                return HttpExchangeBridge.response(
+                    200, emptyMap(),
+                    if (request.method == "GET") """{"c_nonce":"provider-nonce"}""" else wuaJws
+                )
+            }
+        }
+        val wia = JwsCompactTyped<JsonWebToken>(jws("""{"iss":"https://wallet-provider.example"}"""))
+        val wua = WalletProviderClient(transport, "https://wallet-provider.example/").loadKeyAttestation(
+            wia = wia,
+            wiaKey = EphemeralKeyWithoutCert(),
+            holderKey = holderKey,
+            input = OpenId4VciClient.KeyAttestationInput(
+                credentialIssuer = "https://issuer.example",
+                clientNonce = "issuer-nonce",
+                supportedAlgorithms = listOf("ES256"),
+                preferredKeyStorageStatusPeriod = null,
+                requirements = KeyAttestationRequired(preferredTtl = 31.days),
+            ),
+        )
+        assertEquals(wuaJws, wua.jws.toString())
+        assertEquals(
+            listOf("GET https://wallet-provider.example/api/v1/nonce", "POST https://wallet-provider.example/api/v1/keyAttestation"),
+            sent.map { "${it.method} ${it.url}" },
+        )
+        assertEquals("application/json", sent[1].contentType)
+        val body = joseCompliantSerializer.decodeFromString<JsonObject>(sent[1].body!!.toByteArray().decodeToString())
+        assertEquals(wia.jws.toString(), body["token"]?.jsonPrimitive?.content)
+        assertEquals("issuer-nonce", body["nonce"]?.jsonPrimitive?.content)
+        assertEquals(31.days.inWholeSeconds.toString(), body["preferred_key_storage_status_period"]?.jsonPrimitive?.content)
+        assertEquals(1, body["keys"]?.jsonArray?.size)
+        val pop = JwsCompactTyped<JsonWebToken>(body["proof"]!!.jsonPrimitive.content).payload
+        assertEquals("provider-nonce", pop.nonce)
+        assertEquals("https://wallet-provider.example", pop.audience)
     }
 }
