@@ -254,6 +254,36 @@ struct vckiostestTests {
         }
     }
 
+    @Test func protocolClientFactories() async throws {
+        let oauth2 = OAuth2Client.create(clientId: "https://custom.example/wallet")
+        #expect(oauth2.clientId == "https://custom.example/wallet")
+        #expect(oauth2.redirectUrl == "https://custom.example/wallet/callback")
+        #expect(oauth2.signPushedAuthorizationRequest != nil)
+        let unsigned = OAuth2Client.create(redirectUrl: "app://callback", signPushedAuthorizationRequest: nil)
+        #expect(unsigned.redirectUrl == "app://callback")
+        #expect(unsigned.signPushedAuthorizationRequest == nil)
+        #expect(OpenId4VciProtocolClientDefaults.dpopKeyMaterial !== OpenId4VciProtocolClientDefaults.dpopKeyMaterial)
+
+        _ = try IssuerMetadataValidator.create()
+        #expect(throws: (any Error).self) { try IssuerMetadataValidator.create(maxRegistrationValidity: .nan) }
+
+        let wallet = OpenId4VciClientAdapter(
+            clientId: "https://custom.example/wallet",
+            proofCreators: [JwtProofCreator(keyMaterial: OpenId4VciClientDefaults.keyMaterial)]
+        )
+        let client = wallet.protocolClient()
+        #expect(client.vciClient === wallet.client)
+        #expect(client.oauth2Client.oAuth2Client.clientId == wallet.clientId)
+        #expect(client.oauth2Client.oAuth2Client.redirectUrl == "https://custom.example/wallet/callback")
+
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [IssuerMetadataURLProtocol.self]
+        let metadata = try await client.loadIssuerMetadata(credentialIssuer: "https://issuer.example")
+            .run(as: IssuerMetadata.self, session: URLSession(configuration: configuration))
+        #expect(metadata.credentialIssuer == "https://issuer.example")
+        #expect(metadata.supportedCredentialConfigurations["pid"] != nil)
+    }
+
     @Test func validationFactories() throws {
         let policy = try ValidationPolicy.create(
             trust: TrustPolicyIntegrityOnly.shared, status: StatusPolicySkip.shared,
@@ -326,6 +356,28 @@ final class StubURLProtocol: URLProtocol {
         )!
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
         client?.urlProtocol(self, didLoad: Self.response.body)
+        client?.urlProtocolDidFinishLoading(self)
+    }
+
+    override func stopLoading() {}
+}
+
+/// Serves issuer metadata for `protocolClientFactories`, separate from `StubURLProtocol` as tests run in parallel.
+final class IssuerMetadataURLProtocol: URLProtocol {
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+    override func startLoading() {
+        let body = Data(#"""
+            {"credential_issuer":"https://issuer.example","credential_endpoint":"https://issuer.example/credential",
+             "credential_configurations_supported":{"pid":{"format":"dc+sd-jwt","vct":"urn:example:pid"}}}
+            """#.utf8)
+        let response = HTTPURLResponse(
+            url: request.url!, statusCode: 200, httpVersion: "HTTP/1.1",
+            headerFields: ["Content-Type": "application/json"]
+        )!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: body)
         client?.urlProtocolDidFinishLoading(self)
     }
 

@@ -143,6 +143,22 @@ let state = try await client.prepareAuthorizationResponse(input: requestUrl)
 let redirectUri = try await client.sendAuthorizationResponse(response: post).run(as: String?.self)
 ```
 
+OID4VCI runs the same way with `OpenId4VciProtocolClient`, which handles the token request, DPoP and the
+credential request. Build one per issuance flow, and keep it until the credential is received, as it holds the
+flow's PKCE, DPoP and attestation state. `protocolClient` uses the adapter's `clientId` for the OAuth 2.0 client and
+the proofs:
+
+```swift
+let wallet = OpenId4VciClientAdapter(clientId: "https://wallet.example", proofCreators: proofCreators)
+let vci = wallet.protocolClient(redirectUrl: "wallet://callback", clientAttestation: clientAttestation)
+let metadata = try await vci.loadIssuerMetadata(credentialIssuer: issuer).run(as: IssuerMetadata.self)
+```
+
+To configure the parts yourself, use `OAuth2Client.create`, `OAuth2ProtocolClient.create`,
+`IssuerMetadataValidator.create` (which takes seconds, see below) and `OpenId4VciProtocolClient.create`.
+Errors from the issuer or authorization server are `OAuth2Exception`s: read their `error` and `errorDescription`,
+not the `description_` that SKIE renames each subclass's `description` to.
+
 Validation takes a `ValidationPolicy`, which has no default in VC-K 9. Kotlin's
 `Duration` reaches Swift as raw `Int64` bits, so build policies and validators with
 the factories, which take seconds and supply Kotlin's defaults:

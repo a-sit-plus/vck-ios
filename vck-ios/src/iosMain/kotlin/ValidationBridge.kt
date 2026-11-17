@@ -1,6 +1,8 @@
+import at.asitplus.wallet.lib.agent.TrustedCertificates
 import at.asitplus.wallet.lib.validation.CredentialTrustAnchors
 import at.asitplus.wallet.lib.validation.CredentialValidator
 import at.asitplus.wallet.lib.validation.HolderBindingPolicy
+import at.asitplus.wallet.lib.validation.IssuerMetadataValidator
 import at.asitplus.wallet.lib.validation.RegistrationPolicy
 import at.asitplus.wallet.lib.validation.RelyingPartyTrustAnchors
 import at.asitplus.wallet.lib.validation.RelyingPartyValidator
@@ -51,6 +53,21 @@ object ValidationBridge {
         maxRegistrationValiditySeconds: Double,
     ): RelyingPartyValidator = RelyingPartyValidator(
         trust = trust,
+        statusValidator = statusValidator,
+        maxRegistrationValidity = maxRegistrationValiditySeconds.seconds,
+    )
+
+    @Throws(IllegalArgumentException::class)
+    fun issuerMetadataValidator(
+        accessCertificates: TrustedCertificates?,
+        registrationCertificates: TrustedCertificates?,
+        registrationStatus: TrustedCertificates?,
+        statusValidator: StatusValidator,
+        maxRegistrationValiditySeconds: Double,
+    ): IssuerMetadataValidator = IssuerMetadataValidator(
+        accessCertificates = accessCertificates,
+        registrationCertificates = registrationCertificates,
+        registrationStatus = registrationStatus,
         statusValidator = statusValidator,
         maxRegistrationValidity = maxRegistrationValiditySeconds.seconds,
     )
