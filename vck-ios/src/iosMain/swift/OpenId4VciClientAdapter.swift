@@ -21,6 +21,7 @@ public struct OpenId4VciClientAdapter {
 
     /// Builds the proof creators as VC-K's deprecated key-material constructor did:
     /// a JWT proof, plus an attestation proof when `loadKeyAttestation` is set.
+    @available(*, deprecated, message: "Pass proofCreators, e.g. [JwtProofCreator(keyMaterial: keyMaterial)], as VC-K 9 does")
     public init(
         clientId: String = "https://wallet.a-sit.at/app",
         keyMaterial: KeyMaterial = OpenId4VciClientDefaults.keyMaterial,
@@ -105,6 +106,103 @@ public struct OpenId4VciClientAdapter {
             clientId: clientId ?? self.clientId
         )
         return try callbackArgument(kotlinValue(result), as: [OpenId4VciClientCredentialRequest].self)
+    }
+
+    /// The requests the access token grants for `credentialFormats`, still without proofs and encryption.
+    /// Create each with its own `c_nonce` with `createCredential(request:metadata:clientNonce:clientId:)`.
+    /// Throws if the token grants none of `credentialFormats`.
+    public func prepareCredentialRequests(
+        tokenResponse: TokenResponseParameters,
+        metadata: IssuerMetadata,
+        credentialFormats: [SupportedCredentialFormat],
+        previouslyRequestedScope: String? = nil
+    ) throws -> [OpenId4VciClient.PreparedCredentialRequest] {
+        try client.prepareCredentialRequests(
+            tokenResponse: tokenResponse,
+            metadata: metadata,
+            credentialFormats: credentialFormats,
+            previouslyRequestedScope: previouslyRequestedScope
+        ).swiftResult(as: [OpenId4VciClient.PreparedCredentialRequest].self).get()
+    }
+
+    /// The requests the access token grants for all its credentials, still without proofs and encryption.
+    /// Throws if the token grants none.
+    public func prepareCredentialRequests(
+        tokenResponse: TokenResponseParameters,
+        metadata: IssuerMetadata,
+        previouslyRequestedScope: String? = nil
+    ) throws -> [OpenId4VciClient.PreparedCredentialRequest] {
+        try client.prepareCredentialRequests(
+            tokenResponse: tokenResponse,
+            metadata: metadata,
+            previouslyRequestedScope: previouslyRequestedScope
+        ).swiftResult(as: [OpenId4VciClient.PreparedCredentialRequest].self).get()
+    }
+
+    /// One request per `credential_configuration_id`, without a token response. Only use this when the token response
+    /// has no `credential_identifiers`, which the requests would then have to use (OpenID4VCI 1.0, 8.2).
+    /// Throws for an identifier that `metadata` does not list.
+    public func prepareCredentialRequests(
+        credentialConfigurationIds: Set<String>,
+        metadata: IssuerMetadata
+    ) throws -> [OpenId4VciClient.PreparedCredentialRequest] {
+        try client.prepareCredentialRequests(
+            credentialConfigurationIds: credentialConfigurationIds,
+            metadata: metadata
+        ).swiftResult(as: [OpenId4VciClient.PreparedCredentialRequest].self).get()
+    }
+
+    /// Creates the request for one prepared credential, with a proof from the first matching proof creator.
+    /// Call it right before sending, with a fresh `clientNonce` for each request.
+    /// `clientId` defaults to the adapter's.
+    @available(iOS 13, macOS 10.15, watchOS 6, tvOS 13, *)
+    public func createCredential(
+        request: OpenId4VciClient.PreparedCredentialRequest,
+        metadata: IssuerMetadata,
+        clientNonce: String? = nil,
+        clientId: String? = nil
+    ) async throws -> OpenId4VciClientCredentialRequest {
+        try await client.createCredential(
+            request: request,
+            metadata: metadata,
+            clientNonce: clientNonce,
+            clientId: clientId ?? self.clientId
+        ).swiftResult(as: OpenId4VciClientCredentialRequest.self).get()
+    }
+
+    /// Creates the request for exactly one `credential_configuration_id`, without a token response. Only use this
+    /// when the token response has no `credential_identifiers` (OpenID4VCI 1.0, 8.2).
+    /// `clientId` defaults to the adapter's.
+    @available(iOS 13, macOS 10.15, watchOS 6, tvOS 13, *)
+    public func createCredential(
+        metadata: IssuerMetadata,
+        credentialConfigurationId: String,
+        clientNonce: String? = nil,
+        clientId: String? = nil
+    ) async throws -> OpenId4VciClientCredentialRequest {
+        try await client.createCredential(
+            metadata: metadata,
+            credentialConfigurationId: credentialConfigurationId,
+            clientNonce: clientNonce,
+            clientId: clientId ?? self.clientId
+        ).swiftResult(as: OpenId4VciClientCredentialRequest.self).get()
+    }
+}
+
+public extension JwtProofCreator {
+    /// Matches Kotlin's defaults: the `jwk` key binding and, unless given, the system clock.
+    /// Pass `selectProofJwtKeyBinding` with the full initializer to reference the key by `kid`.
+    convenience init(
+        keyMaterial: KeyMaterial,
+        loadKeyAttestation: KotlinSuspendFunction1? = nil,
+        clock: KotlinClock = ClockAdapter.system
+    ) {
+        self.init(
+            keyMaterial: keyMaterial,
+            loadKeyAttestation: loadKeyAttestation,
+            selectProofJwtKeyBinding: OpenId4VciClientDefaults.selectProofJwtKeyBinding,
+            clock: clock
+        )
     }
 }
 

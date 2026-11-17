@@ -88,13 +88,13 @@ struct vckiostestTests {
         let secondKey = OpenId4VciClientDefaults.keyMaterial
         #expect(firstKey !== secondKey)
         #expect(OpenId4VciClientDefaults.encryptionService !== OpenId4VciClientDefaults.encryptionService)
-        let wallet = OpenId4VciClientAdapter()
+        let wallet = OpenId4VciClientAdapter(proofCreators: [JwtProofCreator(keyMaterial: firstKey)])
         #expect(wallet.clientId == "https://wallet.a-sit.at/app")
         let details = try #require(wallet.buildAuthorizationDetails(credentialConfigurationId: "pid").first)
         #expect(details.credentialConfigurationId == "pid")
         #expect(details.locations == nil)
 
-        let custom = OpenId4VciClientAdapter(clientId: "https://custom.example/wallet")
+        let custom = OpenId4VciClientAdapter(clientId: "https://custom.example/wallet", proofCreators: [])
         #expect(custom.clientId == "https://custom.example/wallet")
         let servers: Set<String> = ["https://auth.example"]
         let multiple = custom.buildAuthorizationDetails(
@@ -178,7 +178,7 @@ struct vckiostestTests {
             accessToken: "token", refreshToken: nil, tokenType: "Bearer", expires: nil,
             scope: nil, authorizationPending: nil, interval: nil, authorizationDetails: nil, credentialId: nil
         )
-        let wallet = OpenId4VciClientAdapter()
+        let wallet = OpenId4VciClientAdapter(proofCreators: [JwtProofCreator(keyMaterial: OpenId4VciClientDefaults.keyMaterial)])
         let requests: [OpenId4VciClientCredentialRequest] = try await wallet.createCredential(
             tokenResponse: token, metadata: metadata, credentialFormat: format,
             previouslyRequestedScope: "pid address"
@@ -195,6 +195,62 @@ struct vckiostestTests {
         }
         await #expect(throws: (any Error).self) {
             try await wallet.createCredential(tokenResponse: token, metadata: metadata, credentialFormat: format)
+        }
+    }
+
+    @Test func preparedCredentialRequests() async throws {
+        let metadata = try VckSerializer.shared.joseDeserializeIssuerMetadata(Data(#"""
+            {"credential_issuer":"https://issuer.example","credential_endpoint":"https://issuer.example/credential",
+             "credential_configurations_supported":{
+                "pid":{"format":"dc+sd-jwt","vct":"urn:example:pid","scope":"pid",
+                    "proof_types_supported":{"jwt":{"proof_signing_alg_values_supported":["ES256"]}}},
+                "address":{"format":"dc+sd-jwt","vct":"urn:example:address","scope":"address"}}}
+            """#.utf8))
+        let pid = try #require(metadata.supportedCredentialConfigurations["pid"])
+        let address = try #require(metadata.supportedCredentialConfigurations["address"])
+        let token = TokenResponseParameters(accessToken: "token", tokenType: "Bearer", scope: "pid address")
+        let wallet = OpenId4VciClientAdapter(
+            clientId: "https://custom.example/wallet",
+            proofCreators: [JwtProofCreator(keyMaterial: OpenId4VciClientDefaults.keyMaterial)]
+        )
+
+        let all = try wallet.prepareCredentialRequests(tokenResponse: token, metadata: metadata)
+        #expect(Set(all.map(\.credentialConfigurationId)) == ["pid", "address"])
+        let selected = try wallet.prepareCredentialRequests(
+            tokenResponse: token, metadata: metadata, credentialFormats: [pid]
+        )
+        #expect(selected.map(\.credentialConfigurationId) == ["pid"])
+        #expect(throws: (any Error).self) {
+            try wallet.prepareCredentialRequests(
+                tokenResponse: TokenResponseParameters(accessToken: "token", tokenType: "Bearer", scope: "pid"),
+                metadata: metadata, credentialFormats: [address]
+            )
+        }
+        let byId = try wallet.prepareCredentialRequests(credentialConfigurationIds: ["address"], metadata: metadata)
+        #expect(byId.map(\.credentialConfigurationId) == ["address"])
+        #expect(throws: (any Error).self) {
+            try wallet.prepareCredentialRequests(credentialConfigurationIds: ["unknown"], metadata: metadata)
+        }
+
+        // Each prepared request gets its own nonce; the jwt proof comes from the proof creator.
+        let prepared = try #require(selected.first)
+        let request = try await wallet.createCredential(request: prepared, metadata: metadata, clientNonce: "nonce-1")
+        let plain = try #require(request as? OpenId4VciClientCredentialRequestPlain)
+        #expect(plain.request.credentialConfigurationId == "pid")
+        #expect(plain.request.proofs?.jwt?.count == 1)
+
+        let withoutToken = try await wallet.createCredential(metadata: metadata, credentialConfigurationId: "address")
+        let plainWithoutToken = try #require(withoutToken as? OpenId4VciClientCredentialRequestPlain)
+        #expect(plainWithoutToken.request.credentialConfigurationId == "address")
+        #expect(plainWithoutToken.request.proofs == nil)
+        await #expect(throws: (any Error).self) {
+            try await wallet.createCredential(metadata: metadata, credentialConfigurationId: "unknown")
+        }
+
+        // Without a matching proof creator, a credential that requires proofs can not be requested.
+        let noProofs = OpenId4VciClientAdapter(proofCreators: [])
+        await #expect(throws: (any Error).self) {
+            try await noProofs.createCredential(metadata: metadata, credentialConfigurationId: "pid")
         }
     }
 
