@@ -68,3 +68,21 @@ public extension RelyingPartyValidator {
         )
     }
 }
+
+public extension IssuerMetadataValidator {
+    /// Validates signed issuer metadata (WRPAC, WRPRC). A source left `nil` blocks trust for what it covers.
+    /// `maxRegistrationValidity` in seconds; by default 365 days, as in Kotlin.
+    static func create(
+        accessCertificates: TrustedCertificates? = nil,
+        registrationCertificates: TrustedCertificates? = nil,
+        registrationStatus: TrustedCertificates? = nil,
+        statusValidator: StatusValidator = .create(),
+        maxRegistrationValidity: TimeInterval = 365 * 24 * 60 * 60
+    ) throws -> IssuerMetadataValidator {
+        try ValidationBridge.shared.issuerMetadataValidator(
+            accessCertificates: accessCertificates, registrationCertificates: registrationCertificates,
+            registrationStatus: registrationStatus, statusValidator: statusValidator,
+            maxRegistrationValiditySeconds: maxRegistrationValidity
+        )
+    }
+}
