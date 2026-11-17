@@ -83,6 +83,27 @@ struct vckiostestTests {
         #expect(throws: (any Error).self) { try failure.swiftResult(as: String.self).get() }
     }
 
+    @Test func oauth2ExceptionFromError() throws {
+        let nonce = OAuth2Exception.InvalidNonce(description: "stale nonce", cause: nil)
+        do {
+            _ = try kotlinValue(KmmResult<NSString>(failure: nonce))
+            Issue.record("Expected an error")
+        } catch {
+            let exception = try #require(error.oauth2Exception)
+            #expect(exception is OAuth2Exception.InvalidNonce)
+            #expect(exception.error == "invalid_nonce")
+            #expect(exception.errorDescription == "stale nonce")
+        }
+        do {
+            _ = try kotlinValue(KmmResult<NSString>(failure: KotlinIllegalStateException(message: "wrapped", cause: nonce)))
+            Issue.record("Expected an error")
+        } catch {
+            #expect(error.kotlinThrowable is KotlinIllegalStateException)
+            #expect(error.oauth2Exception?.error == "invalid_nonce")
+        }
+        #expect(NSError(domain: "test", code: 1).oauth2Exception == nil)
+    }
+
     @Test func openId4VciClientDefaults() throws {
         let firstKey = OpenId4VciClientDefaults.keyMaterial
         let secondKey = OpenId4VciClientDefaults.keyMaterial
@@ -239,6 +260,22 @@ struct vckiostestTests {
         #expect(plain.request.credentialConfigurationId == "pid")
         #expect(plain.request.proofs?.jwt?.count == 1)
 
+        // Every credential of a batch is reported, also one that can not be decoded; nothing is validated here,
+        // so any string passes as an SD-JWT until its storage is prepared.
+        let received = try await wallet.decodeCredentialResponse(
+            response: #"{"credentials":[{"credential":"not-an-sd-jwt"},{"credential":{"not":"a string"}}]}"#,
+            isEncrypted: false, request: request, representation: .sdJwt
+        )
+        #expect(received.count == 2)
+        #expect(received.first is ReceivedCredentialDecoded)
+        #expect(received.last is ReceivedCredentialUndecodable)
+        // A plain request must not get an encrypted response.
+        await #expect(throws: (any Error).self) {
+            try await wallet.decodeCredentialResponse(
+                response: "a.b.c.d.e", isEncrypted: true, request: request, representation: .sdJwt
+            )
+        }
+
         let withoutToken = try await wallet.createCredential(metadata: metadata, credentialConfigurationId: "address")
         let plainWithoutToken = try #require(withoutToken as? OpenId4VciClientCredentialRequestPlain)
         #expect(plainWithoutToken.request.credentialConfigurationId == "address")
@@ -298,7 +335,13 @@ struct vckiostestTests {
             )
         }
         _ = CredentialValidator.create()
+        _ = CredentialValidator.create(
+            statusValidator: .create(zlibService: DefaultZlibService()),
+            clock: ClockAdapter.system, requiredClaimsResolver: RequiredClaimsResolverDefault.shared
+        )
         _ = try RelyingPartyValidator.create(trust: .create(), statusValidator: .create())
+        _ = try RelyingPartyValidator.create(clock: ClockAdapter.system)
+        _ = try IssuerMetadataValidator.create(clock: ClockAdapter.system)
     }
 
     @Test func httpExchangeRunner() async throws {

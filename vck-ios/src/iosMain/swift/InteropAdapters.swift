@@ -28,6 +28,23 @@ public func kotlinValue<T>(_ result: KmmResult<T>) throws -> T? {
     return result.getOrNull()
 }
 
+public extension Error {
+    /// The Kotlin exception behind this error, if Kotlin threw it.
+    var kotlinThrowable: KotlinThrowable? { (self as NSError).userInfo["KotlinException"] as? KotlinThrowable }
+
+    /// The OAuth 2.0 error from the issuer or authorization server, also as a cause of the Kotlin exception.
+    /// Read its `error` and `errorDescription`: SKIE renames the subclasses' own `description` to `description_`.
+    var oauth2Exception: OAuth2Exception? {
+        var current = kotlinThrowable
+        for _ in 0..<16 { // Bounded, in case of a cyclic cause chain.
+            guard let throwable = current else { return nil }
+            if let exception = throwable as? OAuth2Exception { return exception }
+            current = throwable.cause
+        }
+        return nil
+    }
+}
+
 @objc public protocol KmmResultSwiftConvertible {
     var erasedKmmResult: KmmResult<AnyObject> { get }
 }
