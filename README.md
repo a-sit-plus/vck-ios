@@ -156,12 +156,28 @@ let metadata = try await vci.loadIssuerMetadata(credentialIssuer: issuer).run(as
 
 To configure the parts yourself, use `OAuth2Client.create`, `OAuth2ProtocolClient.create`,
 `IssuerMetadataValidator.create` (which takes seconds, see below) and `OpenId4VciProtocolClient.create`.
-Errors from the issuer or authorization server are `OAuth2Exception`s: read their `error` and `errorDescription`,
-not the `description_` that SKIE renames each subclass's `description` to.
+Errors from the issuer or authorization server are `OAuth2Exception`s. Get one from a thrown Swift error with
+`error.oauth2Exception` (also when it is the cause of another Kotlin exception, see `error.kotlinThrowable`), and
+read its `error` and `errorDescription`, not the `description_` that SKIE renames each subclass's `description` to:
+
+```swift
+do {
+    let received = try await vci.credentialRequest(
+        request: request, issuerMetadata: metadata, tokenResponse: token, credentialFormat: format
+    ).run(as: [ReceivedCredential].self)
+} catch let error where error.oauth2Exception is OAuth2Exception.InvalidNonce {
+    // Fetch a fresh c_nonce and create the request again.
+}
+```
+
+To decode a credential response received some other way, use `wallet.decodeCredentialResponse(...)`, which
+replaces the deprecated `parseCredentialResponse` and validates nothing: prepare the storage of each
+`ReceivedCredential` with `prepareCredentialStorage`, which validates it.
 
 Validation takes a `ValidationPolicy`, which has no default in VC-K 9. Kotlin's
 `Duration` reaches Swift as raw `Int64` bits, so build policies and validators with
-the factories, which take seconds and supply Kotlin's defaults:
+the factories, which take seconds and supply Kotlin's defaults (pass `signatureCheck`, `clock`,
+`requiredClaimsResolver` or `zlibService` to replace them):
 
 ```swift
 let policy = try ValidationPolicy.create(

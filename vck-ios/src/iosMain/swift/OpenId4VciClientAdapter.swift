@@ -187,6 +187,35 @@ public struct OpenId4VciClientAdapter {
             clientId: clientId ?? self.clientId
         ).swiftResult(as: OpenId4VciClientCredentialRequest.self).get()
     }
+
+    /// One `ReceivedCredential` per credential of the issuer's `response` to `request`, also for one that can not be
+    /// decoded (`ReceivedCredentialUndecodable`). Validates nothing: prepare the storage of each one with
+    /// `prepareCredentialStorage`, which validates it. Throws only for the response itself, e.g. if it is not encrypted
+    /// exactly when `request` asked for an encrypted response.
+    /// - Parameter isEncrypted: whether `response` is a compact JWE, i.e. its media type is `application/jwt`.
+    @available(iOS 13, macOS 10.15, watchOS 6, tvOS 13, *)
+    public func decodeCredentialResponse(
+        response: String,
+        isEncrypted: Bool,
+        request: OpenId4VciClientCredentialRequest,
+        representation: ConstantIndex.CredentialRepresentation
+    ) async throws -> [ReceivedCredential] {
+        try await client.decodeCredentialResponse(
+            response: response, isEncrypted: isEncrypted, request: request, representation: representation
+        ).swiftResult(as: [ReceivedCredential].self).get()
+    }
+
+    /// Like `decodeCredentialResponse(response:isEncrypted:request:representation:)`, for an already parsed response.
+    @available(iOS 13, macOS 10.15, watchOS 6, tvOS 13, *)
+    public func decodeCredentialResponse(
+        response: OpenId4VciServerCredentialResponse,
+        request: OpenId4VciClientCredentialRequest,
+        representation: ConstantIndex.CredentialRepresentation
+    ) async throws -> [ReceivedCredential] {
+        try await client.decodeCredentialResponse(
+            response: response, request: request, representation: representation
+        ).swiftResult(as: [ReceivedCredential].self).get()
+    }
 }
 
 public extension JwtProofCreator {

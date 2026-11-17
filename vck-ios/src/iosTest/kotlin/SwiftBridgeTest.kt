@@ -115,8 +115,10 @@ class SwiftBridgeTest {
         assertFailsWith<IllegalArgumentException> { policy(Double.NaN) }
         ValidationBridge.relyingPartyValidator(
             at.asitplus.wallet.lib.validation.RelyingPartyTrustAnchors(),
-            ValidationBridge.statusValidator(null),
+            ValidationBridge.statusValidator(null, null, null),
             365.days.inWholeSeconds.toDouble(),
+            null,
+            null,
         )
     }
 
