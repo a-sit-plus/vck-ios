@@ -15,12 +15,24 @@ overload generation stays disabled.
 import vck_ios
 
 let keyMaterial = OpenId4VciClientDefaults.keyMaterial
-let wallet = OpenId4VciClientAdapter(clientId: "https://wallet.example", keyMaterial: keyMaterial)
+let wallet = OpenId4VciClientAdapter(
+    clientId: "https://wallet.example",
+    proofCreators: [JwtProofCreator(keyMaterial: keyMaterial)] // first one the issuer accepts is used
+)
 let details = wallet.buildAuthorizationDetails(credentialConfigurationId: "pid")
 let clock = ClockAdapter.system // Kotlin Clock.System
 let metadata = try VckSerializer.shared.joseDeserializeIssuerMetadata(jsonData)
 let json = try VckSerializer.shared.joseSerializeIssuerMetadata(metadata)
 let tokenResponse = TokenResponseParameters(accessToken: "token", tokenType: "Bearer")
+// One request per credential, each with a fresh c_nonce from the issuer's nonce endpoint:
+for prepared in try wallet.prepareCredentialRequests(
+    tokenResponse: tokenResponse, metadata: metadata, credentialFormats: [credentialFormat]
+) {
+    let request = try await wallet.createCredential(request: prepared, metadata: metadata, clientNonce: freshNonce())
+}
+// Without credential_identifiers in the token response, also without it:
+let single = try await wallet.createCredential(metadata: metadata, credentialConfigurationId: "pid")
+// Or all requests with one nonce, as before:
 let requests = try await wallet.createCredential(
     tokenResponse: tokenResponse, metadata: metadata, credentialFormat: credentialFormat
 )
@@ -28,8 +40,9 @@ let requests = try await wallet.createCredential(
 
 Use `wallet.client` for the remaining `OpenId4VciClient` API (VC-K 9 renamed
 `WalletService`; the old adapter names remain as deprecated aliases). Optional constructor arguments (including the proof `clock`) and
-`createCredential`'s nonce, scope, and client ID can all be overridden; pass
-`proofCreators:` to choose the proofs yourself. Since VC-K 9, `createCredential` only
+`createCredential`'s nonce, scope, and client ID can all be overridden. Pass
+`proofCreators:` (e.g. `JwtProofCreator`, `AttestationProofCreator`) to choose the proofs; the
+initializer taking `keyMaterial:` and `loadKeyAttestation:` is deprecated, like VC-K's. Since VC-K 9, `createCredential` only
 requests the given `credentialFormat`, even if the token's scope grants more.
 `OpenId4VciClientDefaults` and `ClockAdapter` expose Swift static accessors.
 Default key material and encryption services are fresh
@@ -44,7 +57,7 @@ let retriever = SwiftSuspendFunction1 { (input: RemoteResourceRetrieverInput) ->
     let (data, _) = try await URLSession.shared.data(from: url)
     return String(data: data, encoding: .utf8)
 }
-let wallet = OpenId4VciClientAdapter(remoteResourceRetriever: retriever)
+let wallet = OpenId4VciClientAdapter(remoteResourceRetriever: retriever, proofCreators: proofCreators)
 let response = try await retriever(input) // safe callable syntax, not the raw invoke export
 let kotlinBytes = try Data([0, 128, 255]).kotlinByteArray
 let swiftBytes = kotlinBytes.bytes // or kotlinBytes.data
@@ -67,7 +80,10 @@ let loadAttestation = SwiftSuspendFunction1 { (input: OpenId4VciClient.KeyAttest
     let attestationProof: String = try await fetchAttestationProof(input)
     return KmmResult(value: try VckSerializer.shared.joseDeserializeKeyAttestationJwt(attestationProof))
 }
-let wallet = OpenId4VciClientAdapter(loadKeyAttestation: loadAttestation)
+let wallet = OpenId4VciClientAdapter(proofCreators: [
+    JwtProofCreator(keyMaterial: keyMaterial, loadKeyAttestation: loadAttestation),
+    AttestationProofCreator(loadKeyAttestation: loadAttestation),
+])
 ```
 
 The throwing helper returns `JwsTyped<JwsCompact, KeyAttestationJwt>`; Kotlin's
