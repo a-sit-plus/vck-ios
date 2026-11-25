@@ -53,7 +53,7 @@ final class WalletModel: NSObject, ObservableObject, ASWebAuthenticationPresenta
     @Published var busy = false
     @Published var hasPreparedPresentation = false
 
-    private var wallet: BasicWallet?
+    private var wallet: DemoWallet?
     private var openId4VpHolder: OpenId4VpHolder?
     private var openId4VpClient: OpenId4VpProtocolClient?
     private var presentationState: AuthorizationResponsePreparationState?
@@ -123,15 +123,14 @@ final class WalletModel: NSObject, ObservableObject, ASWebAuthenticationPresenta
         (UIApplication.shared.connectedScenes.first as? UIWindowScene)!.keyWindow!
     }
 
-    private func walletInstance() throws -> BasicWallet {
+    private func walletInstance() throws -> DemoWallet {
         if let wallet { return wallet }
-        //cheap trick
+        // The Kotlin export takes the SecKey as an opaque pointer
         let key = try loadOrCreateSecureEnclaveKey()
         let pointer = Unmanaged.passUnretained(key).toOpaque()
         let keyMaterial = try kotlinValue(KeyMaterialAdapter.shared.fromSecKey(privateKey: pointer))!
         let store = SubjectCredentialStoreAdapter(SwiftSubjectCredentialStore())
-        let created = BasicWallet(keyMaterial: keyMaterial, subjectCredentialStore: store, transport: URLSessionTransport())
-        //use a builder wrapper
+        let created = try DemoWallet(keyMaterial: keyMaterial, subjectCredentialStore: store)
         let builder = OpenId4VpHolderBuilder(
             keyMaterial: keyMaterial,
             subjectCredentialStore: store
@@ -174,7 +173,7 @@ final class WalletModel: NSObject, ObservableObject, ASWebAuthenticationPresenta
             }
         }
         let count = try await walletInstance().finishIssuance(callbackUrl: callback.absoluteString)
-        append("Credential issued and stored in memory (count: \(count.intValue)).")
+        append("Credential issued and stored in memory (count: \(count)).")
     }
 
     private func run(_ operation: @escaping () async throws -> Void) async {
