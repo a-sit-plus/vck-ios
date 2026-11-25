@@ -21,9 +21,10 @@ VC-K's `Package.swift` uses this debug build while it exists; see VC-K's `DEVELO
 
 Run the app on a physical device, as the Secure Enclave is not available in the Simulator:
 
-1. Issue: loads the issuer's metadata and starts the authorization for its first credential, e.g. the PID SD-JWT of
-   `https://wallet-issuer.a-sit.plus`, then requests the credential with the authorization code. Issuance sends no
-   Wallet Instance Attestation and no key attestations, so it only works with issuers that do not require them.
+1. Issue: gets a Wallet Instance Attestation (WIA) from `wallet-provider.a-sit.plus`, loads the issuer's metadata and
+   starts the authorization for its first credential, e.g. the PID SD-JWT of `https://wallet-issuer.a-sit.plus`, then
+   requests the credential with the authorization code, with a key attestation for the holder key. The WIA binds a
+   Secure Enclave key attested with App Attest, as in Valera, so the wallet provider has to accept the app's App ID.
 2. Open the demo relying party, create a request, and open it with the app.
 3. Parse the request and inspect the matching credentials.
 4. Consent and present.
@@ -49,6 +50,10 @@ To depend on a released VC-K instead of the local checkout, replace the local pa
 
 - [`DemoWallet.swift`](vckiostest/vckiostest/DemoWallet.swift): OpenID4VCI with `OpenId4VciProtocolClient`, sending
   its requests with `HttpExchange.run(as:)`, and validating and storing credentials with `HolderAgent`.
+- [`WalletProviderClient.swift`](vckiostest/vckiostest/WalletProviderClient.swift): the WIA and key attestations from
+  the wallet provider, attesting a Secure Enclave key with App Attest as Warden Supreme's client does, with the CSR
+  built in [`CertificationRequest.swift`](vckiostest/vckiostest/CertificationRequest.swift). Only signature data
+  authentication is implemented.
 - [`ContentView.swift`](vckiostest/vckiostest/ContentView.swift): the Secure Enclave key as `KeyMaterial`, and
   OpenID4VP with `OpenId4VpHolderBuilder` and `OpenId4VpProtocolClient`.
 - [`SwiftSubjectCredentialStore.swift`](vckiostest/vckiostest/SwiftSubjectCredentialStore.swift): a credential store

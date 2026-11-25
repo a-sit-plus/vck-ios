@@ -1,19 +1,23 @@
 import Foundation
 import VckIos
 
-// Same client as Valera, which the A-SIT Plus demo issuer knows.
+// Same client as Valera, which the A-SIT Plus demo issuer and wallet provider know.
 private let clientId = "https://wallet.a-sit.plus/app"
 let issuanceCallback = "asitplus-wallet://wallet.a-sit.plus/app/callback/provisioning"
+/// Requested validity of the WIA and of key attestations, as in Valera.
+private let preferredStatusPeriod: TimeInterval = 31 * 24 * 60 * 60
 
 /// Minimal stateful wallet for a single issue-then-present demo run, written against VC-K's Swift package only.
 ///
-/// Issuance proves possession of the holder key with a plain JWT proof. It sends no Wallet Instance Attestation and no
-/// key attestations, so it only works with issuers that do not require them.
+/// Issuance authenticates the client with a fresh Wallet Instance Attestation (OAuth 2.0 Attestation-Based Client
+/// Authentication), whose key also binds DPoP, and proves possession of the holder key with key attestations from the
+/// wallet provider, see `WalletProviderClient`.
 @MainActor
 final class DemoWallet {
     let keyMaterial: KeyMaterial
     let holder: HolderAgent
     private let session: URLSession
+    private let walletProvider: WalletProviderClient
 
     /// The demo configures no trust anchors and no status list resolver.
     private let issuancePolicy: ValidationPolicy
@@ -30,6 +34,7 @@ final class DemoWallet {
     init(keyMaterial: KeyMaterial, subjectCredentialStore: SubjectCredentialStore, session: URLSession = .shared) throws {
         self.keyMaterial = keyMaterial
         self.session = session
+        walletProvider = WalletProviderClient(session: session)
         holder = HolderAgentBuilder(keyMaterial: keyMaterial, subjectCredentialStore: subjectCredentialStore).build()
         issuancePolicy = try ValidationPolicy.create(
             trust: TrustPolicyIntegrityOnly.shared, status: StatusPolicySkip.shared,
@@ -37,9 +42,33 @@ final class DemoWallet {
         )
     }
 
-    private func protocolClient() -> OpenId4VciProtocolClient {
-        OpenId4VciClientAdapter(clientId: clientId, proofCreators: [JwtProofCreator(keyMaterial: keyMaterial)])
-            .protocolClient(redirectUrl: issuanceCallback)
+    /// The client for one issuance flow, authenticated with a fresh WIA, which keeps the DPoP and attestation challenge
+    /// state of the flow.
+    private func protocolClient() async throws -> OpenId4VciProtocolClient {
+        let walletProvider = self.walletProvider
+        let holderKey = keyMaterial
+        let instance = try await walletProvider.loadInstanceAttestation(
+            preferredClientStatusPeriod: preferredStatusPeriod
+        )
+        let loadKeyAttestation = SwiftSuspendFunction1 { (input: OpenId4VciClient.KeyAttestationInput) in
+            do {
+                return KmmResult(value: try await walletProvider.loadKeyAttestation(
+                    instance: instance, holderKey: holderKey, input: input
+                ))
+            } catch {
+                return KmmResult(failure: SwiftErrorBridge.shared.fromError(error: error as NSError))
+            }
+        }
+        let clientAttestation = ClientAttestation(
+            keyMaterial: instance.keyMaterial,
+            loadInstanceAttestation: SwiftSuspendFunction1 { (_: OAuth2ProtocolClient.LoadInstanceAttestationInput) in
+                KmmResult(value: instance.jwt)
+            }
+        )
+        return OpenId4VciClientAdapter(clientId: clientId, proofCreators: [
+            JwtProofCreator(keyMaterial: holderKey, loadKeyAttestation: loadKeyAttestation),
+            AttestationProofCreator(loadKeyAttestation: loadKeyAttestation),
+        ]).protocolClient(redirectUrl: issuanceCallback, clientAttestation: clientAttestation)
     }
 
     /// Starts the authorization for the issuer's first advertised credential, e.g. the PID SD-JWT on the A-SIT Plus
@@ -48,7 +77,7 @@ final class DemoWallet {
         let normalized = issuer.trimmingCharacters(in: .whitespacesAndNewlines)
             .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         guard normalized.hasPrefix("https://") else { throw DemoWalletError("Issuer must be an HTTPS URL") }
-        let vci = protocolClient()
+        let vci = try await protocolClient()
         let issuerMetadata = try await vci.loadIssuerMetadata(credentialIssuer: normalized)
             .run(as: IssuerMetadata.self, session: session)
         guard let credential = try vci.parseCredentialMetadata(issuerMetadata: issuerMetadata, issuer: nil)
