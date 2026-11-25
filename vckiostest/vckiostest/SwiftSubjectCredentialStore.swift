@@ -1,5 +1,5 @@
 import Foundation
-import vck_ios
+import VckIos
 
 class SwiftSubjectCredentialStore: SwiftCredentialStore {
     private var credentials: [UUID: any SubjectCredentialStoreStoreEntry] = [:]

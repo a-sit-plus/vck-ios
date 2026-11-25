@@ -1,5 +1,5 @@
 import Foundation
-import vck_ios
+import VckIos
 
 // Same client as Valera, which the A-SIT Plus demo issuer knows.
 private let clientId = "https://wallet.a-sit.plus/app"

@@ -2,7 +2,7 @@ import AuthenticationServices
 import Combine
 import Security
 import SwiftUI
-import vck_ios
+import VckIos
 
 private let secureEnclaveTag = Data("at.asitplus.wallet.vckiostest.holder".utf8)
 
