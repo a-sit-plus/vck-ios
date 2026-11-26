@@ -97,8 +97,11 @@ final class WalletModel: NSObject, ObservableObject, ASWebAuthenticationPresenta
                 .getMatchingCredentials(preparationState: state))!
             self.presentationState = state
             self.hasPreparedPresentation = true
-            self.append("OpenID4VP request prepared. Audience: \(state.audience)")
-            self.append("Credentials/claims proposed for consent: \(String(describing: matches))")
+            self.append("OpenID4VP request from \(state.audience) asks for:")
+            for credential in state.request.parameters.dcqlQuery.map(requestedCredentials) ?? ["no DCQL query"] {
+                self.append("- \(credential)")
+            }
+            self.append("Matching stored credentials: \(matchingCredentials(matches))")
         } }
     }
 
@@ -221,4 +224,40 @@ struct ContentView: View {
         }
         .padding()
     }
+}
+
+/// One line per credential the DCQL query asks for, e.g. `dc+sd-jwt urn:eudi:pid:1: family_name, given_name`.
+func requestedCredentials(_ query: DCQLQuery) -> [String] {
+    let claims = (try? claimsPaths(query)) ?? []
+    return query.credentials.enumerated().map { index, credential in
+        let type = switch credential.meta {
+        case let sdJwt as DCQLSdJwtCredentialMetadataAndValidityConstraints: sdJwt.vctValues.joined(separator: " or ")
+        case let mdoc as DCQLIsoMdocCredentialMetadataAndValidityConstraints: mdoc.doctypeValue
+        default: "of any type"
+        }
+        let paths = index < claims.count ? claims[index]?.joined(separator: ", ") : nil
+        return "\(credential.format.text) \(type): \(paths ?? "all claims")"
+    }
+}
+
+/// The claims paths of each credential query, e.g. `place_of_birth.country`, read from the query's JSON, as their
+/// segments are Kotlin value classes, opaque in Swift.
+private func claimsPaths(_ query: DCQLQuery) throws -> [[String]?] {
+    let json = try JSONSerialization.jsonObject(with: try dcqlQueryCodec.encode(value: query)) as? [String: Any]
+    return (json?["credentials"] as? [[String: Any]] ?? []).map { credential in
+        (credential["claims"] as? [[String: Any]])?.map { claim in
+            (claim["path"] as? [Any] ?? []).map { $0 is NSNull ? "*" : "\($0)" }.joined(separator: ".")
+        }
+    }
+}
+
+private let dcqlQueryCodec = JoseCodec<DCQLQuery>(serializer: DCQLQuery.companion.serializer())
+
+/// The stored credentials that match the DCQL query; with none, consenting answers the request with `access_denied`.
+private func matchingCredentials(_ matches: any CredentialMatchingResult) -> String {
+    guard let dcql = matches as? DCQLMatchingResult<AnyObject> else { return "\(type(of: matches))" }
+    let entries = dcql.matchingResult.credentialQueryMatches.values.joined()
+        .compactMap { $0.credential as? any SubjectCredentialStoreStoreEntry }
+        .map { "\($0.credentialFormat.text) \($0.schemeIdentifier)" }
+    return entries.isEmpty ? "none, consenting will answer access_denied" : entries.joined(separator: ", ")
 }
