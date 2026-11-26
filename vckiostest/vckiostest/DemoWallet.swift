@@ -4,6 +4,8 @@ import VckIos
 // Same client as Valera, which the A-SIT Plus demo issuer and wallet provider know.
 private let clientId = "https://wallet.a-sit.plus/app"
 let issuanceCallback = "asitplus-wallet://wallet.a-sit.plus/app/callback/provisioning"
+/// The PID in SD-JWT format, as the demo RP's remote presentation case 1 requests it.
+let pidSdJwtConfigurationId = "urn:eudi:pid:1#dc+sd-jwt"
 /// Requested validity of the WIA and of key attestations, as in Valera.
 private let preferredStatusPeriod: TimeInterval = 31 * 24 * 60 * 60
 
@@ -71,18 +73,21 @@ final class DemoWallet {
         ]).protocolClient(redirectUrl: issuanceCallback, clientAttestation: clientAttestation)
     }
 
-    /// Starts the authorization for the issuer's first advertised credential, e.g. the PID SD-JWT on the A-SIT Plus
-    /// demo issuer, and returns the URL to open in the browser.
-    func startIssuance(issuer: String) async throws -> String {
+    /// Starts the authorization for the credential configuration `credentialConfigurationId`, by default the PID in
+    /// SD-JWT format, and returns the URL to open in the browser.
+    func startIssuance(issuer: String, credentialConfigurationId: String = pidSdJwtConfigurationId) async throws -> String {
         let normalized = issuer.trimmingCharacters(in: .whitespacesAndNewlines)
             .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         guard normalized.hasPrefix("https://") else { throw DemoWalletError("Issuer must be an HTTPS URL") }
         let vci = try await protocolClient()
         let issuerMetadata = try await vci.loadIssuerMetadata(credentialIssuer: normalized)
             .run(as: IssuerMetadata.self, session: session)
-        guard let credential = try vci.parseCredentialMetadata(issuerMetadata: issuerMetadata, issuer: nil)
-            .swiftResult(as: [CredentialIdentifierInfo].self).get().first
-        else { throw DemoWalletError("Issuer advertises no credentials") }
+        let credentials = try vci.parseCredentialMetadata(issuerMetadata: issuerMetadata, issuer: nil)
+            .swiftResult(as: [CredentialIdentifierInfo].self).get()
+        guard let credential = credentials.first(where: { $0.credentialIdentifier == credentialConfigurationId }) else {
+            throw DemoWalletError("Issuer does not advertise \(credentialConfigurationId), only "
+                + credentials.map(\.credentialIdentifier).joined(separator: ", "))
+        }
         let authorizationServer = vci.selectAuthorizationServer(issuerMetadata: issuerMetadata, credentialIssuer: normalized)
         let oauthMetadata = try await vci.oauth2Client.loadAuthorizationServerMetadata(authorizationServer: authorizationServer)
             .run(as: OAuth2AuthorizationServerMetadata.self, session: session)

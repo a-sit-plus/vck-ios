@@ -22,10 +22,12 @@ VC-K's `Package.swift` uses this debug build while it exists; see VC-K's `DEVELO
 Run the app on a physical device, as the Secure Enclave is not available in the Simulator:
 
 1. Issue: gets a Wallet Instance Attestation (WIA) from `wallet-provider.a-sit.plus`, loads the issuer's metadata and
-   starts the authorization for its first credential, e.g. the PID SD-JWT of `https://wallet-issuer.a-sit.plus`, then
-   requests the credential with the authorization code, with a key attestation for the holder key. The WIA binds a
-   Secure Enclave key attested with App Attest, as in Valera, so the wallet provider has to accept the app's App ID.
-2. Open the demo relying party, create a request, and open it with the app.
+   starts the authorization for the PID in SD-JWT format (`urn:eudi:pid:1#dc+sd-jwt`), e.g. of
+   `https://wallet-issuer.a-sit.plus`, then requests the credential with the authorization code, with a key attestation
+   for the holder key. The WIA binds a Secure Enclave key attested with App Attest, as in Valera, so the wallet provider
+   has to accept the app's App ID.
+2. Open the demo relying party's remote presentation case 1 (PID in SD-JWT format), start the request, and open it
+   with the app, which handles its `eu-eaap://` link.
 3. Parse the request and inspect the matching credentials.
 4. Consent and present.
 

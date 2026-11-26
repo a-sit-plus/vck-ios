@@ -24,6 +24,7 @@
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>asitplus-wallet</string>
+				<string>eu-eaap</string>
 				<string>eudi-openid4vp</string>
 				<string>haip</string>
 				<string>haip-vp</string>

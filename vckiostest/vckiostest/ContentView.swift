@@ -69,8 +69,9 @@ final class WalletModel: NSObject, ObservableObject, ASWebAuthenticationPresenta
     }
 
     func openRelyingParty() {
-        UIApplication.shared.open(URL(string: "https://wallet-rp.a-sit.plus/custom.html")!)
-        append("In the RP, create the request and tap Open App Wallet.")
+        // Remote presentation case 1: PID in SD-JWT format, with an OpenID4VP request opening `eu-eaap://`
+        UIApplication.shared.open(URL(string: "https://wallet-rp.a-sit.plus/remote-case.html?id=1")!)
+        append("In the RP, tap Start Request, then Open App Wallet.")
     }
 
     func handle(url: URL) {
@@ -199,7 +200,7 @@ struct ContentView: View {
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .textFieldStyle(.roundedBorder)
-            Button("1. Issue first credential") { model.issue() }
+            Button("1. Issue PID (SD-JWT)") { model.issue() }
                 .buttonStyle(.borderedProminent)
                 .disabled(model.busy)
             Button("2. Open demo RP (PID SD-JWT)") { model.openRelyingParty() }
