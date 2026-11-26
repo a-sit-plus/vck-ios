@@ -46,7 +46,12 @@ jobs:
         working-directory: vck-ios/vckiostest
         run: |
           set -euo pipefail
-          simulator="$(xcrun simctl list devices available iPhone -j \
-            | python3 -c 'import json,sys; print(next(d["udid"] for r in json.load(sys.stdin)["devices"].values() for d in r))')"
+          # The first iPhone simulator the scheme can run on, i.e. with a runtime of at least the deployment target
+          simulator="$(xcodebuild -showdestinations -project vckiostest.xcodeproj -scheme vckiostest 2>/dev/null \
+            | sed -nE 's/.*platform:iOS Simulator, .*id:([0-9A-F-]+), OS:([^,]+), name:(iPhone[^}]*[^ }]).*/\1 \2 \3/p' \
+            | awk 'NR == 1')"
+          test -n "$simulator" || { echo "No iPhone simulator for the scheme"; exit 1; }
+          echo "Testing on $simulator"
+          simulator="${simulator%% *}"
           xcodebuild test -project vckiostest.xcodeproj -scheme vckiostest \
             -destination "id=$simulator" -only-testing:vckiostestTests
