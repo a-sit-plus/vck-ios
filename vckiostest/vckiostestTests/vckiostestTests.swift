@@ -10,6 +10,7 @@ import Foundation
 import VckIos
 
 private let issuerMetadataCodec = JoseCodec<IssuerMetadata>(serializer: IssuerMetadata.companion.serializer())
+private let keyAttestationCodec = JwsCompactCodec<KeyAttestationJwt>(serializer: KeyAttestationJwt.companion.serializer())
 
 struct vckiostestTests {
 
@@ -146,14 +147,14 @@ struct vckiostestTests {
         // Parsing fixture only: signature verification belongs to the attestation verifier.
         let signature = base64url(Data(repeating: 1, count: 64))
         let proof = "\(header).\(payload).\(signature)"
-        let parsed = try VckSerializer.shared.joseDeserializeKeyAttestationJwt(proof)
+        let parsed = try keyAttestationCodec.decodeFromString(string: proof)
         #expect(parsed.payload?.nonce == "nonce")
         #expect(throws: (any Error).self) {
-            try VckSerializer.shared.joseDeserializeKeyAttestationJwt("invalid")
+            try keyAttestationCodec.decodeFromString(string: "invalid")
         }
         #expect(throws: (any Error).self) {
-            try VckSerializer.shared.joseDeserializeKeyAttestationJwt(
-                "\(header).\(base64url(Data("{}".utf8))).\(signature)"
+            try keyAttestationCodec.decodeFromString(
+                string: "\(header).\(base64url(Data("{}".utf8))).\(signature)"
             )
         }
 
@@ -172,7 +173,7 @@ struct vckiostestTests {
             #expect(input.credentialIssuer == "https://issuer.example")
             #expect(input.clientNonce == "nonce")
             calls += 1
-            return KmmResult(value: try VckSerializer.shared.joseDeserializeKeyAttestationJwt(proof))
+            return KmmResult(value: try keyAttestationCodec.decodeFromString(string: proof))
         }
         let wallet = OpenId4VciClientAdapter(proofCreators: [
             JwtProofCreator(keyMaterial: keyMaterial, loadKeyAttestation: callback),
@@ -185,7 +186,7 @@ struct vckiostestTests {
         let request = try #require(requests.first as? OpenId4VciClientCredentialRequestPlain)
         #expect(request.request.proofs?.attestation?.first?.description() == proof)
         let invalidCallback = SwiftSuspendFunction1 { (_: OpenId4VciClient.KeyAttestationInput) in
-            KmmResult(value: try VckSerializer.shared.joseDeserializeKeyAttestationJwt("invalid"))
+            KmmResult(value: try keyAttestationCodec.decodeFromString(string: "invalid"))
         }
         let invalidWallet = OpenId4VciClientAdapter(proofCreators: [
             JwtProofCreator(keyMaterial: OpenId4VciClientDefaults.keyMaterial, loadKeyAttestation: invalidCallback),

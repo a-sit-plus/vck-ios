@@ -61,7 +61,7 @@ To depend on a released VC-K instead of the local checkout, replace the local pa
 - [`SwiftSubjectCredentialStore.swift`](vckiostest/vckiostest/SwiftSubjectCredentialStore.swift): a credential store
   in Swift, passed to VC-K with `SubjectCredentialStoreAdapter`.
 - [`vckiostestTests.swift`](vckiostest/vckiostestTests/vckiostestTests.swift): the Swift adapters, e.g.
-  `SwiftSuspendFunction1` for Kotlin suspend callbacks, `kotlinValue` to unwrap `KmmResult`s, `JoseCodec`, and
+  `SwiftSuspendFunction1` for Kotlin suspend callbacks, `kotlinValue` to unwrap `KmmResult`s, `JoseCodec`, `JwsCompactCodec`, and
   `ValidationPolicy.create`.
 
 ## Swift interop notes
@@ -70,7 +70,8 @@ To depend on a released VC-K instead of the local checkout, replace the local pa
   factories with Swift defaults (`ValidationPolicy.create`, `OAuth2Client.create`, `OpenId4VciClientAdapter`, ...).
 - `Duration` reaches Swift as raw `Int64` bits; the factories take seconds instead.
 - Encode and decode any serializable type with `JoseCodec` or `CoseCodec`, e.g.
-  `JoseCodec<ProvisioningContext>(serializer: ProvisioningContext.companion.serializer())`.
+  `JoseCodec<ProvisioningContext>(serializer: ProvisioningContext.companion.serializer())`, and parse a compact JWS
+  with `JwsCompactCodec`, e.g. `JwsCompactCodec<KeyAttestationJwt>(serializer: KeyAttestationJwt.companion.serializer())`.
 - Call Kotlin callbacks with callable syntax (`try await callback(argument)`), and unwrap results with
   `try kotlinValue(result)` rather than `getOrThrow()`: the raw exports only allow `CancellationException`, so other
   errors would abort the process.

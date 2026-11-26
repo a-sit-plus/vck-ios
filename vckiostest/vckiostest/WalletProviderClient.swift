@@ -64,7 +64,8 @@ final class WalletProviderClient {
         let keyMaterial = try kotlinValue(
             KeyMaterialAdapter.shared.fromSecKey(privateKey: Unmanaged.passUnretained(privateKey).toOpaque())
         )!
-        let jwt = try VckSerializer.shared.joseDeserializeJsonWebTokenJws(serialized)
+        let jwt = try JwsCompactCodec<JsonWebToken>(serializer: JsonWebToken.companion.serializer())
+            .decodeFromString(string: serialized)
         guard jwt.payload?.confirmationClaim?.jsonWebKey?.jwkThumbprint == keyMaterial.jsonWebKey.jwkThumbprint else {
             throw WalletProviderError("Instance attestation does not bind the attested key")
         }
@@ -107,7 +108,8 @@ final class WalletProviderClient {
             contentType: "application/json",
             body: try JSONSerialization.data(withJSONObject: request)
         )
-        let keyAttestation = try VckSerializer.shared.joseDeserializeKeyAttestationJwt(body)
+        let keyAttestation = try JwsCompactCodec<KeyAttestationJwt>(serializer: KeyAttestationJwt.companion.serializer())
+            .decodeFromString(string: body)
         let attestedKeys = try kotlinCollection(keyAttestation.payload?.attestedKeys)?.compactMap { $0 as? JsonWebKey }
         guard attestedKeys?.first?.jwkThumbprint == holderJwk.jwkThumbprint else {
             throw WalletProviderError("Key attestation does not attest the holder key")
