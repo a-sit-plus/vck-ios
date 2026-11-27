@@ -1,0 +1,57 @@
+name: iOS App
+
+# Builds vck's Swift package from source, and tests the demo app against it, as the Xcode project references
+# ../../vck as a local package.
+on:
+  push:
+  workflow_dispatch:
+    inputs:
+      vck-ref:
+        description: "Branch, tag or commit of a-sit-plus/vck to test against"
+        required: false
+        type: string
+
+env:
+  VCK_REF: ${{ inputs.vck-ref || 'feature/swift-package' }}
+
+jobs:
+  test:
+    runs-on: macos-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout this repository
+        uses: actions/checkout@v5
+        with:
+          path: vck-ios
+
+      - name: Checkout VC-K
+        uses: actions/checkout@v5
+        with:
+          repository: a-sit-plus/vck
+          ref: ${{ env.VCK_REF }}
+          path: vck
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: gradle
+          cache-dependency-path: vck/**/*.gradle.kts
+
+      - name: Build debug XCFramework, which vck's Package.swift picks up
+        working-directory: vck
+        run: ./gradlew --no-daemon :vck-ios:assembleVckIosDebugXCFramework
+
+      - name: Test the app
+        working-directory: vck-ios/vckiostest
+        run: |
+          set -euo pipefail
+          # The first iPhone simulator the scheme can run on, i.e. with a runtime of at least the deployment target
+          simulator="$(xcodebuild -showdestinations -project vckiostest.xcodeproj -scheme vckiostest 2>/dev/null \
+            | sed -nE 's/.*platform:iOS Simulator, .*id:([0-9A-F-]+), OS:([^,]+), name:(iPhone[^}]*[^ }]).*/\1 \2 \3/p' \
+            | awk 'NR == 1')"
+          test -n "$simulator" || { echo "No iPhone simulator for the scheme"; exit 1; }
+          echo "Testing on $simulator"
+          simulator="${simulator%% *}"
+          xcodebuild test -project vckiostest.xcodeproj -scheme vckiostest \
+            -destination "id=$simulator" -only-testing:vckiostestTests

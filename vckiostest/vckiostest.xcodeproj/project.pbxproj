@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		CE185DC8302DBB0D00082830 /* vck_ios.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = CE185DC7302DBB0D00082830 /* vck_ios.xcframework */; };
+		CE185DC8302DBB0D00082830 /* VckIos in Frameworks */ = {isa = PBXBuildFile; productRef = CE185E11302DBB0D00082830 /* VckIos */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -31,7 +31,6 @@
 		CE0E22653010C5C400649086 /* vckiostest.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = vckiostest.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		CE0E22723010C5C600649086 /* vckiostestTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = vckiostestTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		CE0E227C3010C5C600649086 /* vckiostestUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = vckiostestUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		CE185DC7302DBB0D00082830 /* vck_ios.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = vck_ios.xcframework; path = "../vck-ios/build/XCFrameworks/debug/vck_ios.xcframework"; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -70,7 +69,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				CE185DC8302DBB0D00082830 /* vck_ios.xcframework in Frameworks */,
+				CE185DC8302DBB0D00082830 /* VckIos in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -98,7 +97,6 @@
 				CE0E22753010C5C600649086 /* vckiostestTests */,
 				CE0E227F3010C5C600649086 /* vckiostestUITests */,
 				CE0E22663010C5C400649086 /* Products */,
-				CE185DC7302DBB0D00082830 /* vck_ios.xcframework */,
 			);
 			sourceTree = "<group>";
 		};
@@ -132,6 +130,7 @@
 			);
 			name = vckiostest;
 			packageProductDependencies = (
+				CE185E11302DBB0D00082830 /* VckIos */,
 			);
 			productName = vckiostest;
 			productReference = CE0E22653010C5C400649086 /* vckiostest.app */;
@@ -191,7 +190,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 2660;
-				LastUpgradeCheck = 2660;
+				LastUpgradeCheck = 2720;
 				TargetAttributes = {
 					CE0E22643010C5C400649086 = {
 						CreatedOnToolsVersion = 26.6;
@@ -215,6 +214,9 @@
 			);
 			mainGroup = CE0E225C3010C5C400649086;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				CE185E10302DBB0D00082830 /* XCLocalSwiftPackageReference "../../vck" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = CE0E22663010C5C400649086 /* Products */;
 			projectDirPath = "";
@@ -350,6 +352,7 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
@@ -409,6 +412,7 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				VALIDATE_PRODUCT = YES;
 			};
@@ -604,6 +608,20 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		CE185E10302DBB0D00082830 /* XCLocalSwiftPackageReference "../../vck" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../../vck;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		CE185E11302DBB0D00082830 /* VckIos */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = VckIos;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = CE0E225D3010C5C400649086 /* Project object */;
 }

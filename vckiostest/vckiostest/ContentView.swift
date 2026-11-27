@@ -2,7 +2,7 @@ import AuthenticationServices
 import Combine
 import Security
 import SwiftUI
-import vck_ios
+import VckIos
 
 private let secureEnclaveTag = Data("at.asitplus.wallet.vckiostest.holder".utf8)
 
@@ -53,7 +53,7 @@ final class WalletModel: NSObject, ObservableObject, ASWebAuthenticationPresenta
     @Published var busy = false
     @Published var hasPreparedPresentation = false
 
-    private var wallet: BasicWallet?
+    private var wallet: DemoWallet?
     private var openId4VpHolder: OpenId4VpHolder?
     private var openId4VpClient: OpenId4VpProtocolClient?
     private var presentationState: AuthorizationResponsePreparationState?
@@ -69,8 +69,9 @@ final class WalletModel: NSObject, ObservableObject, ASWebAuthenticationPresenta
     }
 
     func openRelyingParty() {
-        UIApplication.shared.open(URL(string: "https://wallet-rp.a-sit.plus/custom.html")!)
-        append("In the RP, create the request and tap Open App Wallet.")
+        // Remote presentation case 1: PID in SD-JWT format, with an OpenID4VP request opening `eu-eaap://`
+        UIApplication.shared.open(URL(string: "https://wallet-rp.a-sit.plus/remote-case.html?id=1")!)
+        append("In the RP, tap Start Request, then Open App Wallet.")
     }
 
     func handle(url: URL) {
@@ -96,8 +97,11 @@ final class WalletModel: NSObject, ObservableObject, ASWebAuthenticationPresenta
                 .getMatchingCredentials(preparationState: state))!
             self.presentationState = state
             self.hasPreparedPresentation = true
-            self.append("OpenID4VP request prepared. Audience: \(state.audience)")
-            self.append("Credentials/claims proposed for consent: \(String(describing: matches))")
+            self.append("OpenID4VP request from \(state.audience) asks for:")
+            for credential in state.request.parameters.dcqlQuery.map(requestedCredentials) ?? ["no DCQL query"] {
+                self.append("- \(credential)")
+            }
+            self.append("Matching stored credentials: \(matchingCredentials(matches))")
         } }
     }
 
@@ -123,15 +127,14 @@ final class WalletModel: NSObject, ObservableObject, ASWebAuthenticationPresenta
         (UIApplication.shared.connectedScenes.first as? UIWindowScene)!.keyWindow!
     }
 
-    private func walletInstance() throws -> BasicWallet {
+    private func walletInstance() throws -> DemoWallet {
         if let wallet { return wallet }
-        //cheap trick
+        // The Kotlin export takes the SecKey as an opaque pointer
         let key = try loadOrCreateSecureEnclaveKey()
         let pointer = Unmanaged.passUnretained(key).toOpaque()
         let keyMaterial = try kotlinValue(KeyMaterialAdapter.shared.fromSecKey(privateKey: pointer))!
         let store = SubjectCredentialStoreAdapter(SwiftSubjectCredentialStore())
-        let created = BasicWallet(keyMaterial: keyMaterial, subjectCredentialStore: store, transport: URLSessionTransport())
-        //use a builder wrapper
+        let created = try DemoWallet(keyMaterial: keyMaterial, subjectCredentialStore: store)
         let builder = OpenId4VpHolderBuilder(
             keyMaterial: keyMaterial,
             subjectCredentialStore: store
@@ -174,7 +177,7 @@ final class WalletModel: NSObject, ObservableObject, ASWebAuthenticationPresenta
             }
         }
         let count = try await walletInstance().finishIssuance(callbackUrl: callback.absoluteString)
-        append("Credential issued and stored in memory (count: \(count.intValue)).")
+        append("Credential issued and stored in memory (count: \(count)).")
     }
 
     private func run(_ operation: @escaping () async throws -> Void) async {
@@ -200,7 +203,7 @@ struct ContentView: View {
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .textFieldStyle(.roundedBorder)
-            Button("1. Issue first credential") { model.issue() }
+            Button("1. Issue PID (SD-JWT)") { model.issue() }
                 .buttonStyle(.borderedProminent)
                 .disabled(model.busy)
             Button("2. Open demo RP (PID SD-JWT)") { model.openRelyingParty() }
@@ -221,4 +224,40 @@ struct ContentView: View {
         }
         .padding()
     }
+}
+
+/// One line per credential the DCQL query asks for, e.g. `dc+sd-jwt urn:eudi:pid:1: family_name, given_name`.
+func requestedCredentials(_ query: DCQLQuery) -> [String] {
+    let claims = (try? claimsPaths(query)) ?? []
+    return query.credentials.enumerated().map { index, credential in
+        let type = switch credential.meta {
+        case let sdJwt as DCQLSdJwtCredentialMetadataAndValidityConstraints: sdJwt.vctValues.joined(separator: " or ")
+        case let mdoc as DCQLIsoMdocCredentialMetadataAndValidityConstraints: mdoc.doctypeValue
+        default: "of any type"
+        }
+        let paths = index < claims.count ? claims[index]?.joined(separator: ", ") : nil
+        return "\(credential.format.text) \(type): \(paths ?? "all claims")"
+    }
+}
+
+/// The claims paths of each credential query, e.g. `place_of_birth.country`, read from the query's JSON, as their
+/// segments are Kotlin value classes, opaque in Swift.
+private func claimsPaths(_ query: DCQLQuery) throws -> [[String]?] {
+    let json = try JSONSerialization.jsonObject(with: try dcqlQueryCodec.encode(value: query)) as? [String: Any]
+    return (json?["credentials"] as? [[String: Any]] ?? []).map { credential in
+        (credential["claims"] as? [[String: Any]])?.map { claim in
+            (claim["path"] as? [Any] ?? []).map { $0 is NSNull ? "*" : "\($0)" }.joined(separator: ".")
+        }
+    }
+}
+
+private let dcqlQueryCodec = JoseCodec<DCQLQuery>(serializer: DCQLQuery.companion.serializer())
+
+/// The stored credentials that match the DCQL query; with none, consenting answers the request with `access_denied`.
+private func matchingCredentials(_ matches: any CredentialMatchingResult) -> String {
+    guard let dcql = matches as? DCQLMatchingResult<AnyObject> else { return "\(type(of: matches))" }
+    let entries = dcql.matchingResult.credentialQueryMatches.values.joined()
+        .compactMap { $0.credential as? any SubjectCredentialStoreStoreEntry }
+        .map { "\($0.credentialFormat.text) \($0.schemeIdentifier)" }
+    return entries.isEmpty ? "none, consenting will answer access_denied" : entries.joined(separator: ", ")
 }

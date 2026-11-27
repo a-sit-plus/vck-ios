@@ -7,7 +7,10 @@
 
 import Testing
 import Foundation
-import vck_ios
+import VckIos
+
+private let issuerMetadataCodec = JoseCodec<IssuerMetadata>(serializer: IssuerMetadata.companion.serializer())
+private let keyAttestationCodec = JwsCompactCodec<KeyAttestationJwt>(serializer: KeyAttestationJwt.companion.serializer())
 
 struct vckiostestTests {
 
@@ -135,26 +138,27 @@ struct vckiostestTests {
         }
         let keyMaterial = OpenId4VciClientDefaults.keyMaterial
         let header = base64url(Data(#"{"alg":"ES256"}"#.utf8))
-        let jwk = try VckSerializer.shared.joseSerializeJsonWebKey(keyMaterial.jsonWebKey)
-        #expect(try VckSerializer.shared.joseDeserializeJsonWebKey(jwk) == keyMaterial.jsonWebKey)
+        let jwkCodec = JoseCodec<JsonWebKey>(serializer: JsonWebKey.companion.serializer())
+        let jwk = try jwkCodec.encode(value: keyMaterial.jsonWebKey)
+        #expect(try jwkCodec.decode(data: jwk) == keyMaterial.jsonWebKey)
         let payload = base64url(Data("""
             {"iat":0,"nonce":"nonce","attested_keys":[\(String(decoding: jwk, as: UTF8.self))]}
             """.utf8))
         // Parsing fixture only: signature verification belongs to the attestation verifier.
         let signature = base64url(Data(repeating: 1, count: 64))
         let proof = "\(header).\(payload).\(signature)"
-        let parsed = try VckSerializer.shared.joseDeserializeKeyAttestationJwt(proof)
+        let parsed = try keyAttestationCodec.decodeFromString(string: proof)
         #expect(parsed.payload?.nonce == "nonce")
         #expect(throws: (any Error).self) {
-            try VckSerializer.shared.joseDeserializeKeyAttestationJwt("invalid")
+            try keyAttestationCodec.decodeFromString(string: "invalid")
         }
         #expect(throws: (any Error).self) {
-            try VckSerializer.shared.joseDeserializeKeyAttestationJwt(
-                "\(header).\(base64url(Data("{}".utf8))).\(signature)"
+            try keyAttestationCodec.decodeFromString(
+                string: "\(header).\(base64url(Data("{}".utf8))).\(signature)"
             )
         }
 
-        let metadata = try VckSerializer.shared.joseDeserializeIssuerMetadata(Data(#"""
+        let metadata = try issuerMetadataCodec.decode(data: Data(#"""
             {"credential_issuer":"https://issuer.example","credential_endpoint":"https://issuer.example/credential",
              "credential_configurations_supported":{"pid":{"format":"dc+sd-jwt","vct":"urn:example:pid",
                 "scope":"pid","proof_types_supported":{"attestation":{"proof_signing_alg_values_supported":["ES256"]}}}}}
@@ -169,9 +173,12 @@ struct vckiostestTests {
             #expect(input.credentialIssuer == "https://issuer.example")
             #expect(input.clientNonce == "nonce")
             calls += 1
-            return KmmResult(value: try VckSerializer.shared.joseDeserializeKeyAttestationJwt(proof))
+            return KmmResult(value: try keyAttestationCodec.decodeFromString(string: proof))
         }
-        let wallet = OpenId4VciClientAdapter(keyMaterial: keyMaterial, loadKeyAttestation: callback)
+        let wallet = OpenId4VciClientAdapter(proofCreators: [
+            JwtProofCreator(keyMaterial: keyMaterial, loadKeyAttestation: callback),
+            AttestationProofCreator(loadKeyAttestation: callback),
+        ])
         let requests = try await wallet.createCredential(
             tokenResponse: token, metadata: metadata, credentialFormat: format, clientNonce: "nonce"
         )
@@ -179,16 +186,19 @@ struct vckiostestTests {
         let request = try #require(requests.first as? OpenId4VciClientCredentialRequestPlain)
         #expect(request.request.proofs?.attestation?.first?.description() == proof)
         let invalidCallback = SwiftSuspendFunction1 { (_: OpenId4VciClient.KeyAttestationInput) in
-            KmmResult(value: try VckSerializer.shared.joseDeserializeKeyAttestationJwt("invalid"))
+            KmmResult(value: try keyAttestationCodec.decodeFromString(string: "invalid"))
         }
-        let invalidWallet = OpenId4VciClientAdapter(loadKeyAttestation: invalidCallback)
+        let invalidWallet = OpenId4VciClientAdapter(proofCreators: [
+            JwtProofCreator(keyMaterial: OpenId4VciClientDefaults.keyMaterial, loadKeyAttestation: invalidCallback),
+            AttestationProofCreator(loadKeyAttestation: invalidCallback),
+        ])
         await #expect(throws: (any Error).self) {
             try await invalidWallet.createCredential(tokenResponse: token, metadata: metadata, credentialFormat: format)
         }
     }
 
     @Test func walletCredentialRequests() async throws {
-        let metadata = try VckSerializer.shared.joseDeserializeIssuerMetadata(Data(#"""
+        let metadata = try issuerMetadataCodec.decode(data: Data(#"""
             {"credential_issuer":"https://issuer.example","credential_endpoint":"https://issuer.example/credential",
              "credential_configurations_supported":{
                 "pid":{"format":"dc+sd-jwt","vct":"urn:example:pid","scope":"pid"},
@@ -220,7 +230,7 @@ struct vckiostestTests {
     }
 
     @Test func preparedCredentialRequests() async throws {
-        let metadata = try VckSerializer.shared.joseDeserializeIssuerMetadata(Data(#"""
+        let metadata = try issuerMetadataCodec.decode(data: Data(#"""
             {"credential_issuer":"https://issuer.example","credential_endpoint":"https://issuer.example/credential",
              "credential_configurations_supported":{
                 "pid":{"format":"dc+sd-jwt","vct":"urn:example:pid","scope":"pid",
